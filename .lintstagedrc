@@ -1,0 +1,4 @@
+{
+  "(src|test)/**/*.(ts|tsx)": "npm run lint",
+  "(src|test)/**/*.(ts|tsx)": "npm run prettier"
+}
