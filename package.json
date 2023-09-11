@@ -1,0 +1,102 @@
+{
+  "name": "uvnc-repeater",
+  "description": "The UltraVNC Repeater implementation in NodeJS",
+  "keywords": [
+    "ultravnc repeater",
+    "ultravnc",
+    "uvnc"
+  ],
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "uvnc-repeater": "./dist/bin/repeater.js"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "homepage": "https://github.com/Tomas2D/uvnc-repeater#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tomas2D/uvnc-repeater.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Tomas2D/uvnc-repeater/issues"
+  },
+  "author": "Tomáš Dvořák <toomas2d@gmail.com>",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "cli": "tsx ./src/bin/repeater.ts",
+    "build": "rm -Rf dist; tsup",
+    "watch": "npm run build -- --watch src",
+    "lint": "eslint \"{src,test}/**/*.ts\" --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "changelog": "npx gitmoji-changelog",
+    "release": "npm run version",
+    "version": "npm run changelog && code --wait CHANGELOG.md && git add README.md CHANGELOG.md",
+    "prepublishOnly": "npm run build",
+    "test": "jest"
+  },
+  "dependencies": {
+    "net-keepalive": "^3.0.1",
+    "pino": "^8.15.1",
+    "pino-pretty": "^10.2.0",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "tsx": "^3.12.10",
+    "@types/jest": "^29.5.4",
+    "@types/node": "^18.17.15",
+    "@types/yargs": "^17.0.24",
+    "@typescript-eslint/eslint-plugin": "^6.6.0",
+    "@typescript-eslint/parser": "^6.6.0",
+    "eslint": "^8.49.0",
+    "eslint-config-prettier": "^9.0.0",
+    "husky": "^8.0.3",
+    "jest": "^29.6.4",
+    "lint-staged": "^14.0.0",
+    "prettier": "^3.0.3",
+    "shx": "^0.3.4",
+    "ts-jest": "^29.1.1",
+    "tsup": "^7.2.0",
+    "typescript": "^5.2.2"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "testTimeout": 15000,
+    "testRegex": ".test.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "testEnvironment": "node"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "*.{js,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  }
+}
