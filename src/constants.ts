@@ -11,6 +11,7 @@ export const DefaultServerOptions: VNCRepeaterOptions = {
   logger: undefined,
   socketTimeout: 30 * 60,
   killTimeout: 30,
+  keepAlive: 10,
 } as const;
 
 export const EventInternal = createEnumLowerCase([

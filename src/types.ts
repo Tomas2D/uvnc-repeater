@@ -12,6 +12,7 @@ export interface VNCRepeaterOptions {
   logger?: Logger;
   logLevel?: LogLevel;
   socketTimeout?: number;
+  keepAlive?: number;
   killTimeout?: number;
 }
 

@@ -13,7 +13,10 @@ export abstract class BaseGateway extends EventEmitter {
   protected _logger: Logger;
 
   protected constructor(
-    protected readonly _options: Pick<VNCRepeaterOptions, "socketTimeout"> & {
+    protected readonly _options: Pick<
+      VNCRepeaterOptions,
+      "socketTimeout" | "keepAlive"
+    > & {
       port: number;
     },
     logger: Logger,
@@ -30,7 +33,7 @@ export abstract class BaseGateway extends EventEmitter {
 
     this._server = net.createServer(
       {
-        keepAlive: true,
+        keepAlive: Boolean(this._options.keepAlive),
         allowHalfOpen: false,
         pauseOnConnect: false,
       },
@@ -135,12 +138,14 @@ export abstract class BaseGateway extends EventEmitter {
       );
       socket.setTimeout(this._options.socketTimeout * 1000);
     }
-    socket.setKeepAlive(true, 1000);
-    setKeepAliveInterval(socket, 1000);
-    setKeepAliveProbes(socket, 1);
+    if (this._options.keepAlive) {
+      socket.setKeepAlive(true, this._options.keepAlive * 1000);
+      setKeepAliveInterval(socket, this._options.keepAlive * 1000);
+      setKeepAliveProbes(socket, 1);
+    }
     socket.on("error", (e) => {
-      this._logger.error(e, "Socket error");
-      closeSocket(socket);
+      this._logger.error(e, "Socket has occurred an error");
+      closeSocket(socket, true);
     });
   }
 

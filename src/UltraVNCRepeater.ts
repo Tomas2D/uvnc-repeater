@@ -342,6 +342,7 @@ export class UltraVNCRepeater extends EventEmitter {
         port: this._options.serverPort,
         bufferSize: this._options.bufferSize,
         socketTimeout: this._options.socketTimeout,
+        keepAlive: this._options.keepAlive,
       },
       this._logger,
     );
@@ -386,6 +387,7 @@ export class UltraVNCRepeater extends EventEmitter {
         port: this._options.clientPort,
         bufferSize: this._options.bufferSize,
         socketTimeout: this._options.socketTimeout,
+        keepAlive: this._options.keepAlive,
       },
       this._logger,
     );

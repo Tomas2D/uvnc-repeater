@@ -13,7 +13,7 @@ export class ServerGateway extends BaseGateway {
   constructor(
     protected readonly _options: Pick<
       VNCRepeaterOptions,
-      "bufferSize" | "refuse" | "socketTimeout"
+      "bufferSize" | "refuse" | "socketTimeout" | "keepAlive"
     > & { port: number },
     logger: Logger,
   ) {

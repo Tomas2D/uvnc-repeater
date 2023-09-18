@@ -14,6 +14,8 @@ const EnvName = createEnumLowerCase([
   "REPEATER_REFUSE",
   "REPEATER_LOGFILE",
   "REPEATER_LOG_LEVEL",
+  "REPEATER_SOCKET_TIMEOUT",
+  "REPEATER_SOCKET_KEEPALIVE",
 ] as const);
 
 export async function run() {
@@ -80,6 +82,22 @@ export async function run() {
           "silent",
         ] as LogLevel[],
         default: getEnv(EnvName.REPEATER_LOG_LEVEL, { type: "string" }),
+        demandOption: false,
+      },
+      socketTimeout: {
+        describe: `Provide socket timeout in seconds (or use '${EnvName.REPEATER_SOCKET_TIMEOUT}' env)`,
+        type: "number",
+        default: getEnv(EnvName.REPEATER_SOCKET_TIMEOUT, {
+          type: "number",
+        }),
+        demandOption: false,
+      },
+      keepAlive: {
+        describe: `Provide keep-alive interval in seconds (or use '${EnvName.REPEATER_SOCKET_KEEPALIVE}' env)`,
+        type: "number",
+        default: getEnv(EnvName.REPEATER_SOCKET_KEEPALIVE, {
+          type: "number",
+        }),
         demandOption: false,
       },
     })

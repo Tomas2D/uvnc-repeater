@@ -10,7 +10,7 @@ export class ClientGateway extends BaseGateway {
   constructor(
     protected readonly _options: Pick<
       VNCRepeaterOptions,
-      "noRFB" | "bufferSize" | "refuse" | "socketTimeout"
+      "noRFB" | "bufferSize" | "refuse" | "socketTimeout" | "keepAlive"
     > & {
       port: number;
     },
