@@ -17,6 +17,10 @@ export interface VNCRepeaterOptions {
 }
 
 export type ConnectionId = string;
+export interface ConnectionInfo {
+  id?: ConnectionId;
+  address?: string;
+}
 export type ActiveConnectionId = string;
 export type PendingConnection =
   | { server: Socket; client: null }
@@ -28,7 +32,20 @@ export type ActiveConnection = {
   client: Socket;
 };
 
-export interface CloseConnectionEvent {
+export interface CloseClientConnectionEvent {
+  id?: ConnectionId;
+  socket: Socket;
+}
+export interface CloseServerConnectionEvent {
+  id: ConnectionId;
+  socket: Socket;
+}
+
+export interface TimeoutClientConnectionEvent {
+  id?: ConnectionId;
+  socket: Socket;
+}
+export interface TimeoutServerConnectionEvent {
   id: ConnectionId;
   socket: Socket;
 }
@@ -41,5 +58,8 @@ export interface NewServerConnectionEvent {
 export interface NewClientConnectionEvent {
   id?: ConnectionId;
   buffer: string;
+  socket: Socket;
+}
+export interface NewConnectionEvent {
   socket: Socket;
 }

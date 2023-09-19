@@ -3,10 +3,10 @@ import { EventEmitter } from "node:events";
 import { Logger } from "../logger.js";
 import { ConnectionId, VNCRepeaterOptions } from "../types.js";
 import { RepeaterError } from "../error.js";
-import { closeSocket, safeAsync } from "../utils.js";
+import { closeSocket, identity, safeAsync } from "../utils.js";
 import util from "node:util";
 import { setKeepAliveInterval, setKeepAliveProbes } from "net-keepalive";
-import { clearInterval } from "timers";
+import { setInterval } from "node:timers/promises";
 
 export abstract class BaseGateway extends EventEmitter {
   protected _server: Server | null = null;
@@ -38,9 +38,12 @@ export abstract class BaseGateway extends EventEmitter {
         pauseOnConnect: false,
       },
       safeAsync({
-        handler: this._onConnection.bind(this),
-        onError: (err) =>
-          this._logger.error(err, `Error during connection (init phase)`),
+        handler: identity(this._onConnection.bind(this)),
+        onError: (err, [socket]) => {
+          this._logger.error(err, `Error during connection (init phase)`, {
+            socket,
+          });
+        },
       }),
     );
 
@@ -48,9 +51,7 @@ export abstract class BaseGateway extends EventEmitter {
       if (!this._server) {
         return resolve();
       }
-      this._server.listen(this._options.port, () => {
-        resolve();
-      });
+      this._server.listen(this._options.port, resolve);
     });
   }
 
@@ -68,32 +69,25 @@ export abstract class BaseGateway extends EventEmitter {
 
   protected async _waitForData(socket: Socket, size: number): Promise<string> {
     if (!socket.readable) {
-      throw new RepeaterError("Socket is not readable!", { socket });
+      throw new RepeaterError("Socket is not readable!", { socket, size });
     }
 
-    const readData = (): string | null => {
+    socket.once("end", () => {
+      throw new RepeaterError("Failed to retrieve data from the socket!", {
+        socket,
+        size,
+      });
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    for await (const _ of setInterval(100)) {
       const response: Buffer | null = socket.read(size);
       if (response && response.length >= size) {
         return response.toString();
       }
-      return null;
-    };
+    }
 
-    return await new Promise((resolve, reject) => {
-      const getData = () => {
-        const data = readData();
-        if (data !== null) {
-          clearInterval(intervalId);
-          resolve(data);
-        }
-      };
-      getData();
-      const intervalId = setInterval(getData, 100);
-      socket.once("end", () => {
-        clearInterval(intervalId);
-        reject();
-      });
-    });
+    return "" as never;
   }
 
   protected async _readHeader(socket: Socket, size: number) {
@@ -118,7 +112,7 @@ export abstract class BaseGateway extends EventEmitter {
     await new Promise<void>((resolve, reject) => {
       const throwError = (originalError: Error) => {
         const error = new RepeaterError(
-          `Error has occurred during hookup (ID:${id})`,
+          `Error has occurred during connection hookup (ID:${id})`,
           {
             originalError,
           },
@@ -134,7 +128,7 @@ export abstract class BaseGateway extends EventEmitter {
   protected async _onConnection(socket: Socket) {
     if (this._options.socketTimeout) {
       this._logger.debug(
-        `Setting timeout to ${this._options.socketTimeout} seconds.`,
+        `setting new connection timeout to ${this._options.socketTimeout} seconds.`,
       );
       socket.setTimeout(this._options.socketTimeout * 1000);
     }
@@ -143,8 +137,10 @@ export abstract class BaseGateway extends EventEmitter {
       setKeepAliveInterval(socket, this._options.keepAlive * 1000);
       setKeepAliveProbes(socket, 1);
     }
-    socket.on("error", (e) => {
-      this._logger.error(e, "Socket has occurred an error");
+    socket.on("error", () => {
+      closeSocket(socket, true);
+    });
+    socket.on("timeout", () => {
       closeSocket(socket, true);
     });
   }

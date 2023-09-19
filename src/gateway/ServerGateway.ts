@@ -1,11 +1,12 @@
 import type {
-  CloseConnectionEvent,
+  CloseServerConnectionEvent,
   NewClientConnectionEvent,
+  TimeoutServerConnectionEvent,
   VNCRepeaterOptions,
 } from "../types.js";
 import { Logger } from "../logger.js";
 import { Socket } from "node:net";
-import { closeSocket, safeAsync } from "../utils.js";
+import { closeSocket } from "../utils.js";
 import { BaseGateway } from "./BaseGateway.js";
 import { EventInternal } from "../constants.js";
 
@@ -29,27 +30,27 @@ export class ServerGateway extends BaseGateway {
       this._options.bufferSize,
     );
     if (!id) {
-      this._logger.debug(`invalid ID:NNNNN string for server: ${buffer}`);
+      this._logger.debug(`invalid ID:NNNNN string for new server: ${buffer}`);
       await closeSocket(socket);
       return;
     }
 
+    socket.on("timeout", () => {
+      super.emit<TimeoutServerConnectionEvent>(EventInternal.TIMEOUT_SERVER, {
+        id,
+        socket,
+      });
+    });
+    socket.on("close", () => {
+      super.emit<CloseServerConnectionEvent>(EventInternal.CLOSE_SERVER, {
+        id,
+        socket,
+      });
+    });
     super.emit<NewClientConnectionEvent>(EventInternal.NEW_SERVER, {
       id,
       socket,
       buffer,
-    });
-    socket.once(
-      "timeout",
-      safeAsync({
-        handler: async () => {
-          this._logger.info(`server with id:${id} has timed out`);
-          await closeSocket(socket, true);
-        },
-      }),
-    );
-    socket.on("close", () => {
-      super.emit<CloseConnectionEvent>("close_server", { id, socket });
     });
   }
 }

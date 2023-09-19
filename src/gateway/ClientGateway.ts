@@ -1,9 +1,13 @@
-import { VNCRepeaterOptions } from "../types.js";
+import type {
+  CloseClientConnectionEvent,
+  NewClientConnectionEvent,
+  TimeoutClientConnectionEvent,
+  VNCRepeaterOptions,
+} from "../types.js";
 import { Logger } from "../logger.js";
 import { Socket } from "node:net";
 import util from "node:util";
 import { BaseGateway } from "./BaseGateway.js";
-import { closeSocket, safeAsync } from "../utils.js";
 import { EventInternal } from "../constants.js";
 
 export class ClientGateway extends BaseGateway {
@@ -21,11 +25,10 @@ export class ClientGateway extends BaseGateway {
 
   protected async _onConnection(socket: Socket): Promise<void> {
     await super._onConnection(socket);
-    this._logger.debug("new client connecting.");
+    this._logger.debug("new client connecting");
 
-    if (this._options.noRFB) {
-      this._logger.info("not sending RFB 000.000");
-    } else {
+    if (!this._options.noRFB) {
+      this._logger.debug(`sending RFB header`);
       await util.promisify(socket.write.bind(socket))(`RFB 000.000\n`);
     }
 
@@ -33,18 +36,22 @@ export class ClientGateway extends BaseGateway {
       socket,
       this._options.bufferSize,
     );
-    super.emit(EventInternal.NEW_CLIENT, { id, socket, buffer });
-    socket.once(
-      "timeout",
-      safeAsync({
-        handler: async () => {
-          this._logger.info(`client with id:${id} has timed out`);
-          await closeSocket(socket, true);
-        },
-      }),
-    );
+    socket.on("timeout", () => {
+      super.emit<TimeoutClientConnectionEvent>(EventInternal.TIMEOUT_CLIENT, {
+        id,
+        socket,
+      });
+    });
     socket.once("close", () => {
-      super.emit(EventInternal.CLOSE_CLIENT, { id, socket });
+      super.emit<CloseClientConnectionEvent>(EventInternal.CLOSE_CLIENT, {
+        id,
+        socket,
+      });
+    });
+    super.emit<NewClientConnectionEvent>(EventInternal.NEW_CLIENT, {
+      id,
+      socket,
+      buffer,
     });
   }
 }

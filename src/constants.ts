@@ -15,10 +15,13 @@ export const DefaultServerOptions: VNCRepeaterOptions = {
 } as const;
 
 export const EventInternal = createEnumLowerCase([
+  "NEW_CONNECTION",
   "NEW_CLIENT",
   "CLOSE_CLIENT",
   "NEW_SERVER",
   "CLOSE_SERVER",
+  "TIMEOUT_SERVER",
+  "TIMEOUT_CLIENT",
 ] as const);
 
 export const Event = createEnumLowerCase([

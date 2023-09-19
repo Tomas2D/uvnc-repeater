@@ -43,17 +43,30 @@ export async function closeSocket(socket: Socket, force = false) {
   await closeFn().catch(noop);
 }
 
-export function safeAsync<P, T>({
+function toPromise<T, P extends any[]>(fn: (...args: P) => T | Promise<T>) {
+  return async (...args: P): Promise<T> => {
+    return fn(...args);
+  };
+}
+
+export function identity<T>(value: T) {
+  return value;
+}
+
+export function safeAsync<P extends any[], T>({
   handler,
   onError,
 }: {
-  handler: (...args: P[]) => Promise<T>;
-  onError?: (e: Error, sourceArgs: P[]) => void;
+  handler: (...args: P) => Promise<T> | T;
+  onError?: (e: Error, meta: P) => void;
 }) {
-  return async (...args: P[]): Promise<T | void> => {
-    return handler(...args).catch((e) =>
-      Promise.resolve(onError ? onError(e, args) : undefined),
-    );
+  return async (...args: P): Promise<T | void> => {
+    const asyncFn = toPromise(handler);
+    try {
+      return await asyncFn(...args);
+    } catch (e) {
+      return onError ? onError(e as Error, args) : undefined;
+    }
   };
 }
 
