@@ -211,7 +211,7 @@ repeater.on(Event.CLIENT_NEW_ADDED_TO_PENDING, (event) => {
 await repeater.start();
 ```
 
-## CLI
+## ⌨️ CLI
 
 If you want to use the repeater as is, you can install it as a CLI tool.
 
@@ -252,3 +252,7 @@ REPEATER_SERVER_PORT=5555 uvnc-repeater
 ```
 
 To list all possible options, see help (`uvnc-repeater --help`)
+
+### 📃 TODO
+
+- [ ] Tests
