@@ -2,20 +2,24 @@ import type {
   CloseServerConnectionEvent,
   NewClientConnectionEvent,
   TimeoutServerConnectionEvent,
-  VNCRepeaterOptions,
 } from "../types.js";
 import { Logger } from "../logger.js";
 import { Socket } from "node:net";
 import { closeSocket } from "../utils.js";
-import { BaseGateway } from "./BaseGateway.js";
+import { BaseGateway, BaseGatewayOptions } from "./BaseGateway.js";
 import { EventInternal } from "../constants.js";
+
+export interface ServerGatewayOptions extends BaseGatewayOptions {
+  bufferSize: number;
+  refuse: boolean;
+  socketTimeout: number;
+  socketFirstDataTimeout: number;
+  keepAlive: number;
+}
 
 export class ServerGateway extends BaseGateway {
   constructor(
-    protected readonly _options: Pick<
-      VNCRepeaterOptions,
-      "bufferSize" | "refuse" | "socketTimeout" | "keepAlive"
-    > & { port: number },
+    protected readonly _options: ServerGatewayOptions,
     logger: Logger,
   ) {
     super(_options, logger);
@@ -23,14 +27,15 @@ export class ServerGateway extends BaseGateway {
 
   protected async _onConnection(socket: Socket): Promise<void> {
     await super._onConnection(socket);
-    this._logger.debug("new server connecting");
+    const logger = this._getSocketLogger(socket);
+    logger.debug("new server connecting");
 
     const { id, buffer } = await this._readHeader(
       socket,
       this._options.bufferSize,
     );
     if (!id) {
-      this._logger.debug(`invalid ID:NNNNN string for new server: ${buffer}`);
+      logger.debug(`invalid ID:NNNNN string for new server: ${buffer}`);
       await closeSocket(socket);
       return;
     }

@@ -19,7 +19,9 @@ const EnvName = createEnumLowerCase([
 ] as const);
 
 export async function run() {
-  const options: VNCRepeaterOptions = await yargs(hideBin(process.argv))
+  const options: Partial<VNCRepeaterOptions> = await yargs(
+    hideBin(process.argv),
+  )
     .options({
       clientPort: {
         describe: `Provide custom client gateway port (or use '${EnvName.REPEATER_CLIENT_PORT}' env)`,

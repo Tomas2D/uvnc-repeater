@@ -8,8 +8,10 @@ export const DefaultServerOptions: VNCRepeaterOptions = {
   logFile: undefined,
   logLevel: "debug",
   noRFB: false,
+  refuse: false,
   logger: undefined,
   socketTimeout: 30 * 60,
+  socketFirstDataTimeout: 10,
   killTimeout: 30,
   keepAlive: 10,
 } as const;

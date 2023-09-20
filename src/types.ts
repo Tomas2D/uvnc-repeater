@@ -5,14 +5,15 @@ export interface VNCRepeaterOptions {
   clientPort: number;
   serverPort: number;
   bufferSize: number;
-  refuse?: boolean;
-  noRFB?: boolean;
+  refuse: boolean;
+  noRFB: boolean;
   logFile?: string;
   debug?: boolean;
   logger?: Logger;
   logLevel?: LogLevel;
-  socketTimeout?: number;
-  keepAlive?: number;
+  socketTimeout: number;
+  socketFirstDataTimeout: number;
+  keepAlive: number;
   killTimeout?: number;
 }
 
@@ -26,11 +27,15 @@ export type PendingConnection =
   | { server: Socket; client: null }
   | { server: null; client: Socket };
 
-export type ActiveConnection = {
+export interface ActiveConnection {
   id: ConnectionId;
   server: Socket;
   client: Socket;
-};
+}
+
+export interface NewConnection {
+  socket: Socket;
+}
 
 export interface CloseClientConnectionEvent {
   id?: ConnectionId;
@@ -63,3 +68,6 @@ export interface NewClientConnectionEvent {
 export interface NewConnectionEvent {
   socket: Socket;
 }
+
+export type SemiRequired<T, K extends keyof T> = Pick<Required<T>, K> &
+  Omit<T, K>;

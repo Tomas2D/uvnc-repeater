@@ -1,24 +1,27 @@
 import net, { Server, Socket } from "node:net";
 import { EventEmitter } from "node:events";
 import { Logger } from "../logger.js";
-import { ConnectionId, VNCRepeaterOptions } from "../types.js";
-import { RepeaterError } from "../error.js";
-import { closeSocket, identity, safeAsync } from "../utils.js";
+import { ConnectionId, NewConnection } from "../types.js";
+import { InternalRepeaterError, RepeaterError } from "../error.js";
+import { closeSocket, identity, logException, safeAsync } from "../utils.js";
 import util from "node:util";
 import { setKeepAliveInterval, setKeepAliveProbes } from "net-keepalive";
-import { setInterval } from "node:timers/promises";
+import { setInterval, setTimeout } from "node:timers/promises";
+import { EventInternal } from "../constants.js";
+
+export interface BaseGatewayOptions {
+  keepAlive: number;
+  socketTimeout: number;
+  socketFirstDataTimeout: number;
+  port: number;
+}
 
 export abstract class BaseGateway extends EventEmitter {
   protected _server: Server | null = null;
   protected _logger: Logger;
 
   protected constructor(
-    protected readonly _options: Pick<
-      VNCRepeaterOptions,
-      "socketTimeout" | "keepAlive"
-    > & {
-      port: number;
-    },
+    protected readonly _options: BaseGatewayOptions,
     logger: Logger,
   ) {
     super();
@@ -39,10 +42,12 @@ export abstract class BaseGateway extends EventEmitter {
       },
       safeAsync({
         handler: identity(this._onConnection.bind(this)),
-        onError: (err, [socket]) => {
-          this._logger.error(err, `Error during connection (init phase)`, {
-            socket,
-          });
+        onError: (err) => {
+          logException(
+            this._logger,
+            err,
+            `Unexpected error during connection processing`,
+          );
         },
       }),
     );
@@ -68,16 +73,11 @@ export abstract class BaseGateway extends EventEmitter {
   }
 
   protected async _waitForData(socket: Socket, size: number): Promise<string> {
+    const logger = this._getSocketLogger(socket);
     if (!socket.readable) {
-      throw new RepeaterError("Socket is not readable!", { socket, size });
+      logger.warn("Socket is not readable!", { socket, size });
+      return "";
     }
-
-    socket.once("end", () => {
-      throw new RepeaterError("Failed to retrieve data from the socket!", {
-        socket,
-        size,
-      });
-    });
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for await (const _ of setInterval(100)) {
@@ -87,13 +87,24 @@ export abstract class BaseGateway extends EventEmitter {
       }
     }
 
-    return "" as never;
+    return "";
   }
 
   protected async _readHeader(socket: Socket, size: number) {
-    this._logger.debug(`reading ${size}B from the socket`);
+    const logger = this._getSocketLogger(socket);
+    logger.debug(`reading ${size}B from the socket`);
 
-    let buffer = await this._waitForData(socket, size);
+    let buffer = await Promise.race([
+      this._waitForData(socket, size),
+      setTimeout(this._options.socketFirstDataTimeout * 1000, null),
+    ]);
+    if (!buffer) {
+      await closeSocket(socket, true);
+      throw new InternalRepeaterError(
+        `Failed to receive enough data from the socket!`,
+      );
+    }
+
     const idx = buffer.indexOf("\0");
     if (idx >= 0) {
       buffer = buffer.substring(0, idx);
@@ -126,8 +137,10 @@ export abstract class BaseGateway extends EventEmitter {
   }
 
   protected async _onConnection(socket: Socket) {
+    const logger = this._getSocketLogger(socket);
+
     if (this._options.socketTimeout) {
-      this._logger.debug(
+      logger.debug(
         `setting new connection timeout to ${this._options.socketTimeout} seconds.`,
       );
       socket.setTimeout(this._options.socketTimeout * 1000);
@@ -137,12 +150,32 @@ export abstract class BaseGateway extends EventEmitter {
       setKeepAliveInterval(socket, this._options.keepAlive * 1000);
       setKeepAliveProbes(socket, 1);
     }
-    socket.on("error", () => {
+    socket.on("error", (e) => {
+      if (e && "code" in e && e.code === "ECONNRESET") {
+        logger.warn(
+          `An ECONNRESET error occurred due to an unexpected connection reset`,
+        );
+      }
       closeSocket(socket, true);
     });
     socket.on("timeout", () => {
       closeSocket(socket, true);
     });
+    this.emit<NewConnection>(EventInternal.NEW_CONNECTION, { socket });
+  }
+
+  protected _getSocketLogger(socket: Socket) {
+    const address = socket.remoteAddress;
+    if (!address) {
+      return this._logger;
+    }
+
+    return this._logger.child(
+      {},
+      {
+        msgPrefix: `[${socket.remoteAddress}]`,
+      },
+    );
   }
 
   emit<T extends Record<string, any>>(

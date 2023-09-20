@@ -18,6 +18,7 @@ import {
   runSafeAsync,
   safeAsync,
   identity,
+  logException,
 } from "./utils.js";
 import { RepeaterError } from "./error.js";
 import { createFileLogger, createLogger, Logger } from "./logger.js";
@@ -27,7 +28,6 @@ import { BaseGateway } from "./gateway/BaseGateway.js";
 import { ActiveConnectionId } from "./types.js";
 import { randomUUID } from "crypto";
 import { EventEmitter } from "node:events";
-import { AddressInfo } from "net";
 
 export class UltraVNCRepeater extends EventEmitter {
   protected _client: ClientGateway | null = null;
@@ -53,7 +53,7 @@ export class UltraVNCRepeater extends EventEmitter {
     this._options = {
       ...omitValues(DefaultServerOptions, undefined),
       ...omitValues(options, undefined),
-    } as VNCRepeaterOptions;
+    };
 
     if (this._options.logger) {
       this._logger = this._options.logger;
@@ -172,8 +172,6 @@ export class UltraVNCRepeater extends EventEmitter {
     const logger = this._getLoggerForSocket(event.socket);
     logger.info(`client has been closed`);
 
-    this._activeConnectionBySocket.delete(event.socket);
-
     if (event.id) {
       const connection = this._pendingConnections.get(event.id);
       if (connection && connection.client === event.socket) {
@@ -181,6 +179,13 @@ export class UltraVNCRepeater extends EventEmitter {
         connection.client = null;
       }
     }
+
+    const activeConnectionId = this._activeConnectionBySocket.get(event.socket);
+    this._activeConnectionBySocket.delete(event.socket);
+    if (activeConnectionId) {
+      await this._closeAndDeleteActiveConnection(activeConnectionId);
+    }
+
     this.emit(Event.AFTER_CLIENT_CLOSE, event);
   }
 
@@ -206,8 +211,8 @@ export class UltraVNCRepeater extends EventEmitter {
 
     const info = this._connectionInfoBySocket.get(socket)!;
     if (!info.address) {
-      const { address, port } = socket.address() as AddressInfo;
-      info.address = [address, port].filter(Boolean).join(":") ?? "unknown";
+      const address = socket.remoteAddress;
+      info.address = address ?? "unknown";
     }
     if ((!info.id || info.id === "unknown") && id) {
       info.id = id;
@@ -387,6 +392,7 @@ export class UltraVNCRepeater extends EventEmitter {
         port: this._options.serverPort,
         bufferSize: this._options.bufferSize,
         socketTimeout: this._options.socketTimeout,
+        socketFirstDataTimeout: this._options.socketFirstDataTimeout,
         keepAlive: this._options.keepAlive,
       },
       this._logger,
@@ -398,9 +404,11 @@ export class UltraVNCRepeater extends EventEmitter {
         handler: identity(this._onNewConnection.bind(this)),
         onError: (err, [event]) => {
           const logger = this._getLoggerForSocket(event.socket);
-          logger.warn(`Unexpected error during new connection`, {
+          logException(
+            logger,
             err,
-          });
+            `Unexpected error during new unknown server connection`,
+          );
         },
       }),
     );
@@ -408,11 +416,13 @@ export class UltraVNCRepeater extends EventEmitter {
       EventInternal.NEW_SERVER,
       safeAsync({
         handler: identity(this._onNewServer.bind(this)),
-        onError: (err, [{ socket }]) => {
-          const logger = this._getLoggerForSocket(socket);
-          logger.warn(`Unexpected error during new server connection`, {
+        onError: (err, [event]) => {
+          const logger = this._getLoggerForSocket(event.socket);
+          logException(
+            logger,
             err,
-          });
+            `Unexpected error during new server connection`,
+          );
         },
       }),
     );
@@ -420,11 +430,13 @@ export class UltraVNCRepeater extends EventEmitter {
       EventInternal.CLOSE_SERVER,
       safeAsync({
         handler: identity(this._onCloseServer.bind(this)),
-        onError: (err, [{ socket }]) => {
-          const logger = this._getLoggerForSocket(socket);
-          logger.warn(`Unexpected error when closing server connection`, {
+        onError: (err, [event]) => {
+          const logger = this._getLoggerForSocket(event.socket);
+          logException(
+            logger,
             err,
-          });
+            `Unexpected error when closing server connection`,
+          );
         },
       }),
     );
@@ -446,20 +458,37 @@ export class UltraVNCRepeater extends EventEmitter {
         port: this._options.clientPort,
         bufferSize: this._options.bufferSize,
         socketTimeout: this._options.socketTimeout,
+        socketFirstDataTimeout: this._options.socketFirstDataTimeout,
         keepAlive: this._options.keepAlive,
       },
       this._logger,
     );
 
     this._client.on(
+      EventInternal.NEW_CONNECTION,
+      safeAsync({
+        handler: identity(this._onNewConnection.bind(this)),
+        onError: (err, [event]) => {
+          const logger = this._getLoggerForSocket(event.socket);
+          logException(
+            logger,
+            err,
+            `Unexpected error during new unknown client connection`,
+          );
+        },
+      }),
+    );
+    this._client.on(
       EventInternal.NEW_CLIENT,
       safeAsync({
         handler: identity(this._onNewClient.bind(this)),
         onError: (err, [{ socket }]) => {
           const logger = this._getLoggerForSocket(socket);
-          logger.warn(`Unexpected error during new client connection`, {
+          logException(
+            logger,
             err,
-          });
+            `Unexpected error during new client connection`,
+          );
         },
       }),
     );
@@ -469,9 +498,11 @@ export class UltraVNCRepeater extends EventEmitter {
         handler: identity(this._onCloseClient.bind(this)),
         onError: (err, [event]) => {
           const logger = this._getLoggerForSocket(event.socket);
-          logger.warn(`Unexpected error during closing client connection`, {
+          logException(
+            logger,
             err,
-          });
+            `Unexpected error during closing client connection`,
+          );
         },
       }),
     );

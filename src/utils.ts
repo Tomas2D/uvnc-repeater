@@ -1,5 +1,7 @@
 import { Socket } from "node:net";
 import util from "node:util";
+import { InternalRepeaterError } from "./error.js";
+import { Logger } from "./logger.js";
 
 export type OmitType<T extends Record<string, any>, L> = {
   [K in keyof T as T[K] extends L ? never : K]: T[K] extends Record<
@@ -85,3 +87,15 @@ export const createEnumLowerCase = <T extends ReadonlyArray<string>>(
     {} as { [K in T[number]]: Lowercase<K> },
   );
 };
+
+export function logException(
+  logger: Logger,
+  err: Error,
+  message = `Unexpected error has occurred`,
+) {
+  if (err instanceof InternalRepeaterError) {
+    logger.warn(err.message ?? message);
+  } else {
+    logger.error(err, message);
+  }
+}

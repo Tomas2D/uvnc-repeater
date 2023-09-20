@@ -2,22 +2,25 @@ import type {
   CloseClientConnectionEvent,
   NewClientConnectionEvent,
   TimeoutClientConnectionEvent,
-  VNCRepeaterOptions,
 } from "../types.js";
 import { Logger } from "../logger.js";
 import { Socket } from "node:net";
 import util from "node:util";
-import { BaseGateway } from "./BaseGateway.js";
+import { BaseGateway, BaseGatewayOptions } from "./BaseGateway.js";
 import { EventInternal } from "../constants.js";
+
+export interface ClientGatewayOptions extends BaseGatewayOptions {
+  noRFB: boolean;
+  bufferSize: number;
+  refuse: boolean;
+  socketTimeout: number;
+  socketFirstDataTimeout: number;
+  keepAlive: number;
+}
 
 export class ClientGateway extends BaseGateway {
   constructor(
-    protected readonly _options: Pick<
-      VNCRepeaterOptions,
-      "noRFB" | "bufferSize" | "refuse" | "socketTimeout" | "keepAlive"
-    > & {
-      port: number;
-    },
+    protected readonly _options: ClientGatewayOptions,
     logger: Logger,
   ) {
     super(_options, logger);
@@ -25,10 +28,12 @@ export class ClientGateway extends BaseGateway {
 
   protected async _onConnection(socket: Socket): Promise<void> {
     await super._onConnection(socket);
-    this._logger.debug("new client connecting");
+
+    const logger = this._getSocketLogger(socket);
+    logger.debug("new client connecting");
 
     if (!this._options.noRFB) {
-      this._logger.debug(`sending RFB header`);
+      logger.debug(`sending RFB header`);
       await util.promisify(socket.write.bind(socket))(`RFB 000.000\n`);
     }
 
