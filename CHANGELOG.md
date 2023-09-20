@@ -1,5 +1,13 @@
 # Changelog
 
+<a name="1.2.0-beta"></a>
+## 1.2.0-beta (2023-09-20)
+
+### Added
+
+- ✨ Improve logging, types and connections handling [[6fe5dd8](https://github.com/Tomas2D/ultravnc-repeater/commit/6fe5dd8f621207bd8df2e79f4f2023a3e13ca6f9)]
+
+
 <a name="1.2.0-alpha"></a>
 ## 1.2.0-alpha (2023-09-19)
 
