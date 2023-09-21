@@ -3,7 +3,13 @@ import { EventEmitter } from "node:events";
 import { Logger } from "../logger.js";
 import { ConnectionId, NewConnection } from "../types.js";
 import { InternalRepeaterError, RepeaterError } from "../error.js";
-import { closeSocket, identity, logException, safeAsync } from "../utils.js";
+import {
+  closeSocket,
+  extractSocketAddress,
+  identity,
+  logException,
+  safeAsync,
+} from "../utils.js";
 import util from "node:util";
 import { setKeepAliveInterval, setKeepAliveProbes } from "net-keepalive";
 import { setInterval, setTimeout } from "node:timers/promises";
@@ -42,9 +48,10 @@ export abstract class BaseGateway extends EventEmitter {
       },
       safeAsync({
         handler: identity(this._onConnection.bind(this)),
-        onError: (err) => {
+        onError: (err, [socket]) => {
+          const logger = this._getSocketLogger(socket);
           logException(
-            this._logger,
+            logger,
             err,
             `Unexpected error during connection processing`,
           );
@@ -165,15 +172,14 @@ export abstract class BaseGateway extends EventEmitter {
   }
 
   protected _getSocketLogger(socket: Socket) {
-    const address = socket.remoteAddress;
+    const address = extractSocketAddress(socket);
     if (!address) {
       return this._logger;
     }
-
     return this._logger.child(
       {},
       {
-        msgPrefix: `[${socket.remoteAddress}]`,
+        msgPrefix: `[${address}]`,
       },
     );
   }

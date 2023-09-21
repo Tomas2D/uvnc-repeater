@@ -1,4 +1,4 @@
-import { Socket } from "node:net";
+import { Socket, AddressInfo } from "node:net";
 import util from "node:util";
 import { InternalRepeaterError } from "./error.js";
 import { Logger } from "./logger.js";
@@ -98,4 +98,13 @@ export function logException(
   } else {
     logger.error(err, message);
   }
+}
+
+export function extractSocketAddress(socket: Socket) {
+  const { address } = socket.address() as AddressInfo;
+  if (!address) {
+    return null;
+  }
+
+  return address.replace("::ffff:", "");
 }

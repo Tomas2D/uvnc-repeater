@@ -19,6 +19,7 @@ import {
   safeAsync,
   identity,
   logException,
+  extractSocketAddress,
 } from "./utils.js";
 import { RepeaterError } from "./error.js";
 import { createFileLogger, createLogger, Logger } from "./logger.js";
@@ -211,10 +212,10 @@ export class UltraVNCRepeater extends EventEmitter {
 
     const info = this._connectionInfoBySocket.get(socket)!;
     if (!info.address) {
-      const address = socket.remoteAddress;
-      info.address = address ?? "unknown";
+      const address = extractSocketAddress(socket);
+      info.address = address ?? undefined;
     }
-    if ((!info.id || info.id === "unknown") && id) {
+    if (!info.id && id) {
       info.id = id;
     }
   }
@@ -482,8 +483,8 @@ export class UltraVNCRepeater extends EventEmitter {
       EventInternal.NEW_CLIENT,
       safeAsync({
         handler: identity(this._onNewClient.bind(this)),
-        onError: (err, [{ socket }]) => {
-          const logger = this._getLoggerForSocket(socket);
+        onError: (err, [event]) => {
+          const logger = this._getLoggerForSocket(event.socket);
           logException(
             logger,
             err,
@@ -546,11 +547,14 @@ export class UltraVNCRepeater extends EventEmitter {
 
   protected _getLoggerForSocket(socket?: Socket) {
     if (socket && this._connectionInfoBySocket.has(socket)) {
-      const { id, address } = this._connectionInfoBySocket.get(socket)!;
+      const { address, id } = this._connectionInfoBySocket.get(socket)!;
       return this._logger.child(
         {},
         {
-          msgPrefix: `[${address}][${id}]`,
+          msgPrefix: [address, id]
+            .filter(Boolean)
+            .map((value) => `[${value}]`)
+            .join(""),
         },
       );
     }
@@ -558,6 +562,6 @@ export class UltraVNCRepeater extends EventEmitter {
   }
 
   protected _getLoggerPrefix() {
-    return `[UVNCRepeater]`;
+    return `[Repeater]`;
   }
 }
