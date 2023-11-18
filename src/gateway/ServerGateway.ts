@@ -19,10 +19,10 @@ export interface ServerGatewayOptions extends BaseGatewayOptions {
 
 export class ServerGateway extends BaseGateway {
   constructor(
-    protected readonly _options: ServerGatewayOptions,
+    public readonly options: ServerGatewayOptions,
     logger: Logger,
   ) {
-    super(_options, logger);
+    super(options, logger);
   }
 
   protected async _onConnection(socket: Socket): Promise<void> {
@@ -32,7 +32,7 @@ export class ServerGateway extends BaseGateway {
 
     const { id, buffer } = await this._readHeader(
       socket,
-      this._options.bufferSize,
+      this.options.bufferSize,
     );
     if (!id) {
       logger.debug(`invalid ID:NNNNN string for new server: ${buffer}`);
@@ -44,18 +44,21 @@ export class ServerGateway extends BaseGateway {
       super.emit<TimeoutServerConnectionEvent>(EventInternal.TIMEOUT_SERVER, {
         id,
         socket,
+        emittedAt: new Date(),
       });
     });
     socket.on("close", () => {
       super.emit<CloseServerConnectionEvent>(EventInternal.CLOSE_SERVER, {
         id,
         socket,
+        emittedAt: new Date(),
       });
     });
     super.emit<NewClientConnectionEvent>(EventInternal.NEW_SERVER, {
       id,
       socket,
       buffer,
+      emittedAt: new Date(),
     });
   }
 }

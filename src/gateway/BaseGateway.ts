@@ -11,23 +11,28 @@ import {
   safeAsync,
 } from "../utils.js";
 import util from "node:util";
-import { setKeepAliveInterval, setKeepAliveProbes } from "net-keepalive";
+import {
+  setKeepAliveInterval,
+  setKeepAliveProbes,
+  setUserTimeout,
+} from "net-keepalive";
 import { setInterval, setTimeout } from "node:timers/promises";
 import { EventInternal } from "../constants.js";
 
 export interface BaseGatewayOptions {
   keepAlive: number;
+  keepAliveRetries: number;
   socketTimeout: number;
   socketFirstDataTimeout: number;
   port: number;
 }
 
 export abstract class BaseGateway extends EventEmitter {
-  protected _server: Server | null = null;
+  server: Server | null = null;
   protected _logger: Logger;
 
   protected constructor(
-    protected readonly _options: BaseGatewayOptions,
+    public readonly options: BaseGatewayOptions,
     logger: Logger,
   ) {
     super();
@@ -35,14 +40,13 @@ export abstract class BaseGateway extends EventEmitter {
   }
 
   async start() {
-    if (this._server) {
+    if (this.server) {
       this._logger.warn(`Server is already running.`);
       return;
     }
 
-    this._server = net.createServer(
+    this.server = net.createServer(
       {
-        keepAlive: Boolean(this._options.keepAlive),
         allowHalfOpen: false,
         pauseOnConnect: false,
       },
@@ -60,19 +64,19 @@ export abstract class BaseGateway extends EventEmitter {
     );
 
     await new Promise<void>((resolve) => {
-      if (!this._server) {
+      if (!this.server) {
         return resolve();
       }
-      this._server.listen(this._options.port, resolve);
+      this.server.listen(this.options.port, resolve);
     });
   }
 
   async close() {
-    if (!this._server) {
+    if (!this.server) {
       this._logger.warn(`Server has not been even started!`);
       return;
     }
-    await util.promisify(this._server.close.bind(this._server))();
+    await util.promisify(this.server.close.bind(this.server))();
   }
 
   protected _getLoggerPrefix() {
@@ -103,7 +107,7 @@ export abstract class BaseGateway extends EventEmitter {
 
     let buffer = await Promise.race([
       this._waitForData(socket, size),
-      setTimeout(this._options.socketFirstDataTimeout * 1000, null),
+      setTimeout(this.options.socketFirstDataTimeout * 1000, null),
     ]);
     if (!buffer) {
       await closeSocket(socket, true);
@@ -126,7 +130,7 @@ export abstract class BaseGateway extends EventEmitter {
     };
   }
 
-  static async hookup(a: Socket, b: Socket, id: ConnectionId) {
+  static async hookup(server: Socket, client: Socket, id: ConnectionId) {
     await new Promise<void>((resolve, reject) => {
       const throwError = (originalError: Error) => {
         const error = new RepeaterError(
@@ -138,37 +142,52 @@ export abstract class BaseGateway extends EventEmitter {
         reject(error);
       };
 
-      a.pipe(b).on("error", throwError).on("end", resolve);
-      b.pipe(a).on("error", throwError).on("end", resolve);
+      server.pipe(client).on("error", throwError).on("end", resolve);
+      client.pipe(server).on("error", throwError).on("end", resolve);
     });
   }
 
   protected async _onConnection(socket: Socket) {
     const logger = this._getSocketLogger(socket);
 
-    if (this._options.socketTimeout) {
+    if (this.options.socketTimeout) {
       logger.debug(
-        `setting new connection timeout to ${this._options.socketTimeout} seconds.`,
+        `setting new connection timeout to ${this.options.socketTimeout} seconds.`,
       );
-      socket.setTimeout(this._options.socketTimeout * 1000);
+      socket.setTimeout(this.options.socketTimeout * 1000);
     }
-    if (this._options.keepAlive) {
-      socket.setKeepAlive(true, this._options.keepAlive * 1000);
-      setKeepAliveInterval(socket, this._options.keepAlive * 1000);
-      setKeepAliveProbes(socket, 1);
+    if (this.options.keepAlive) {
+      logger.debug("setting keep-alive properties");
+      socket.setKeepAlive(true, this.options.keepAlive * 1000);
+      setKeepAliveInterval(socket, this.options.keepAlive * 1000);
+      setUserTimeout(socket, this.options.keepAlive * 1000);
+      setKeepAliveProbes(socket, Math.max(this.options.keepAliveRetries, 1));
     }
     socket.on("error", (e) => {
-      if (e && "code" in e && e.code === "ECONNRESET") {
-        logger.warn(
-          `An ECONNRESET error occurred due to an unexpected connection reset`,
-        );
+      const errCode = e && "code" in e && e.code;
+      switch (errCode) {
+        case "ECONNRESET":
+          logger.warn(
+            `An ECONNRESET error occurred due to an unexpected connection reset`,
+          );
+          break;
+        case "ETIMEDOUT":
+          logger.warn(`socket connection has timed out`);
+          break;
+        default:
+          logger.warn(`error on the socket has occurred (${e.message})`);
+          break;
       }
       closeSocket(socket, true);
     });
     socket.on("timeout", () => {
+      logger.debug("socket connection has timed out");
       closeSocket(socket, true);
     });
-    this.emit<NewConnection>(EventInternal.NEW_CONNECTION, { socket });
+    this.emit<NewConnection>(EventInternal.NEW_CONNECTION, {
+      socket,
+      createdAt: new Date(),
+    });
   }
 
   protected _getSocketLogger(socket: Socket) {

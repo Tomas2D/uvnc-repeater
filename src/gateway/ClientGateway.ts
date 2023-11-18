@@ -20,10 +20,10 @@ export interface ClientGatewayOptions extends BaseGatewayOptions {
 
 export class ClientGateway extends BaseGateway {
   constructor(
-    protected readonly _options: ClientGatewayOptions,
+    public readonly options: ClientGatewayOptions,
     logger: Logger,
   ) {
-    super(_options, logger);
+    super(options, logger);
   }
 
   protected async _onConnection(socket: Socket): Promise<void> {
@@ -32,31 +32,34 @@ export class ClientGateway extends BaseGateway {
     const logger = this._getSocketLogger(socket);
     logger.debug("new client connecting");
 
-    if (!this._options.noRFB) {
+    if (!this.options.noRFB) {
       logger.debug(`sending RFB header`);
       await util.promisify(socket.write.bind(socket))(`RFB 000.000\n`);
     }
 
     const { id, buffer } = await this._readHeader(
       socket,
-      this._options.bufferSize,
+      this.options.bufferSize,
     );
     socket.on("timeout", () => {
       super.emit<TimeoutClientConnectionEvent>(EventInternal.TIMEOUT_CLIENT, {
         id,
         socket,
+        emittedAt: new Date(),
       });
     });
     socket.once("close", () => {
       super.emit<CloseClientConnectionEvent>(EventInternal.CLOSE_CLIENT, {
         id,
         socket,
+        emittedAt: new Date(),
       });
     });
     super.emit<NewClientConnectionEvent>(EventInternal.NEW_CLIENT, {
       id,
       socket,
       buffer,
+      emittedAt: new Date(),
     });
   }
 }

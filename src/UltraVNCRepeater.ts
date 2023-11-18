@@ -5,11 +5,14 @@ import type {
   CloseServerConnectionEvent,
   ConnectionId,
   ConnectionInfo,
+  HookupEvent,
   NewClientConnectionEvent,
+  NewClientConnectionInvalid,
   NewConnectionEvent,
   NewServerConnectionEvent,
   PendingConnection,
   VNCRepeaterOptions,
+  ActiveConnectionId,
 } from "./types.js";
 import { DefaultServerOptions, EventInternal, Event } from "./constants.js";
 import {
@@ -21,33 +24,47 @@ import {
   logException,
   extractSocketAddress,
 } from "./utils.js";
-import { RepeaterError } from "./error.js";
+import { RepeaterError, UnknownSocketError } from "./error.js";
 import { createFileLogger, createLogger, Logger } from "./logger.js";
 import { ClientGateway } from "./gateway/ClientGateway.js";
 import { ServerGateway } from "./gateway/ServerGateway.js";
 import { BaseGateway } from "./gateway/BaseGateway.js";
-import { ActiveConnectionId } from "./types.js";
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
+import { Stats } from "./Stats.js";
 
 export class UltraVNCRepeater extends EventEmitter {
-  protected _client: ClientGateway | null = null;
-  protected _server: ServerGateway | null = null;
+  protected client: ClientGateway | null = null;
+  protected server: ServerGateway | null = null;
 
-  protected _pendingConnections = new Map<ConnectionId, PendingConnection>();
+  public readonly _stats = new Stats();
 
-  protected _activeConnections = new Map<
+  // Pending connections (either server or client exists, never both)
+  protected readonly _pendingConnections = new Map<
+    ConnectionId,
+    PendingConnection
+  >();
+
+  // Active connections (both server and client exists)
+  protected readonly _activeConnections = new Map<
     ActiveConnectionId,
     ActiveConnection
   >();
-  protected _activeConnectionBySocket = new WeakMap<
+
+  // Lookup for an active connection by socket
+  protected readonly _activeConnectionIdBySocket = new WeakMap<
     Socket,
     ActiveConnectionId
   >();
-  protected _connectionInfoBySocket = new WeakMap<Socket, ConnectionInfo>();
 
-  protected _options: VNCRepeaterOptions;
-  protected _logger: Logger;
+  // All connections' socket meta-information
+  protected readonly _connectionInfoBySocket = new WeakMap<
+    Socket,
+    ConnectionInfo
+  >();
+
+  protected readonly _options: VNCRepeaterOptions;
+  protected readonly _logger: Logger;
 
   constructor(options: Partial<VNCRepeaterOptions> = {}) {
     super();
@@ -76,12 +93,13 @@ export class UltraVNCRepeater extends EventEmitter {
   }
 
   async start() {
-    if (this._client || this._server) {
+    if (this.client || this.server) {
       throw new RepeaterError(`Gateways are already running!`);
     }
 
     this.emit(Event.BEFORE_REPEATER_START);
     this._logger.debug(`Starting...`);
+    this._stats.start();
     await Promise.all([this._initServerGateway(), this._initClientGateway()]);
     await this._registerCleanups();
 
@@ -90,7 +108,7 @@ export class UltraVNCRepeater extends EventEmitter {
   }
 
   async close(force = false) {
-    if (!this._client && !this._server) {
+    if (!this.client && !this.server) {
       this._logger.warn(`Repeater has not been started!`);
       return;
     }
@@ -99,10 +117,10 @@ export class UltraVNCRepeater extends EventEmitter {
     this._logger.debug(`Closing all connections!`);
 
     await Promise.allSettled([
-      this._client
+      this.client
         ?.close?.()
         .finally(() => this.emit(Event.AFTER_CLIENT_GATEWAY_STOP)),
-      this._server
+      this.server
         ?.close?.()
         .finally(() => this.emit(Event.AFTER_SERVER_GATEWAY_STOP)),
       ...Array.from(this._pendingConnections.keys()).map((id) =>
@@ -112,9 +130,10 @@ export class UltraVNCRepeater extends EventEmitter {
         this._closeAndDeleteActiveConnection(id, force),
       ),
     ]);
-    this._client = null;
-    this._server = null;
+    this.client = null;
+    this.server = null;
     this._logger.info(`Repeater has been closed.`);
+    this._stats.stop();
     this.emit(Event.AFTER_REPEATER_STOP);
   }
 
@@ -130,6 +149,10 @@ export class UltraVNCRepeater extends EventEmitter {
     const connection = this._pendingConnections.get(id);
     if (connection) {
       this._pendingConnections.delete(id);
+      this._connectionInfoBySocket.delete(
+        connection.server || connection.client,
+      );
+
       const { server, client } = connection;
       await Promise.allSettled([
         server && closeSocket(server, force),
@@ -145,8 +168,10 @@ export class UltraVNCRepeater extends EventEmitter {
     logger.info(`server has been closed`);
 
     const pendingConnection = this._pendingConnections.get(event.id);
-    const activeConnectionId = this._activeConnectionBySocket.get(event.socket);
-    this._activeConnectionBySocket.delete(event.socket);
+    const activeConnectionId = this._activeConnectionIdBySocket.get(
+      event.socket,
+    );
+    this._activeConnectionIdBySocket.delete(event.socket);
 
     await Promise.allSettled([
       pendingConnection?.server === event.socket &&
@@ -157,13 +182,36 @@ export class UltraVNCRepeater extends EventEmitter {
     this.emit(Event.AFTER_SERVER_CLOSE, event);
   }
 
+  async closeConnection(
+    conn: Socket | ActiveConnection | PendingConnection,
+    force = false,
+  ) {
+    const socket = conn instanceof Socket ? conn : conn.server || conn.client;
+    const connection = this._connectionInfoBySocket.get(socket);
+    if (!connection || !connection.id) {
+      throw new UnknownSocketError(
+        "Provided socket is not associated with any connection!",
+      );
+    }
+    await closeSocket(socket, force);
+  }
+
+  getStats() {
+    return this._stats.serialize();
+  }
+
   protected async _closeAndDeleteActiveConnection(id: string, force = false) {
     const activeConnection = this._activeConnections.get(id);
     if (activeConnection) {
+      const { server, client } = activeConnection;
+
       this._activeConnections.delete(id);
+      this._activeConnectionIdBySocket.delete(client);
+      this._activeConnectionIdBySocket.delete(server);
+
       await Promise.allSettled([
-        activeConnection.server && closeSocket(activeConnection.server, force),
-        activeConnection.client && closeSocket(activeConnection.client, force),
+        server && closeSocket(server, force),
+        client && closeSocket(client, force),
       ]);
     }
   }
@@ -181,8 +229,10 @@ export class UltraVNCRepeater extends EventEmitter {
       }
     }
 
-    const activeConnectionId = this._activeConnectionBySocket.get(event.socket);
-    this._activeConnectionBySocket.delete(event.socket);
+    const activeConnectionId = this._activeConnectionIdBySocket.get(
+      event.socket,
+    );
+    this._activeConnectionIdBySocket.delete(event.socket);
     if (activeConnectionId) {
       await this._closeAndDeleteActiveConnection(activeConnectionId);
     }
@@ -223,13 +273,19 @@ export class UltraVNCRepeater extends EventEmitter {
   protected async _onNewServer(event: Readonly<NewServerConnectionEvent>) {
     this.emit(Event.BEFORE_SERVER_NEW, event);
     this._updateConnectionInfo(event.socket, event.id);
+    this._stats.logServer();
 
-    const { id, socket: serverSocket } = event;
+    const { id, socket: serverSocket, emittedAt: serverConnectedAt } = event;
     const logger = this._getLoggerForSocket(serverSocket);
 
     if (!this._pendingConnections.has(id)) {
       logger.info(`adding new server`);
-      this._pendingConnections.set(id, { server: serverSocket, client: null });
+      this._pendingConnections.set(id, {
+        server: serverSocket,
+        serverConnectedAt: new Date(),
+        client: null,
+        clientConnectedAt: null,
+      });
       this.emit(Event.SERVER_NEW_ADDED_TO_PENDING, event);
       return;
     }
@@ -246,12 +302,17 @@ export class UltraVNCRepeater extends EventEmitter {
       logger.info(`hooking up server with existing client`);
 
       this._pendingConnections.delete(id);
-      this._addActiveConnection(id, {
+      const activeConnection = this._addActiveConnection(id, {
         server: serverSocket,
+        serverConnectedAt,
         client: connection.client,
+        clientConnectedAt: connection.clientConnectedAt,
       });
-      this.emit(Event.SERVER_NEW_HOOKUP, event);
-      await BaseGateway.hookup(connection.client, serverSocket, id);
+      this.emit<HookupEvent>(Event.SERVER_NEW_HOOKUP, {
+        emittedAt: new Date(),
+        connection: activeConnection,
+      });
+      await BaseGateway.hookup(serverSocket, connection.client, id);
       return;
     }
 
@@ -259,15 +320,24 @@ export class UltraVNCRepeater extends EventEmitter {
     logger.info(`closing and deleting previous server`);
     runSafeAsync(() => this._closeAndDeletePendingConnection(id));
     logger.info(`storing new server`);
-    this._pendingConnections.set(id, { server: serverSocket, client: null });
-    this.emit(Event.SERVER_NEW_ADDED_TO_PENDING, event);
+    this._pendingConnections.set(id, {
+      server: serverSocket,
+      serverConnectedAt,
+      client: null,
+      clientConnectedAt: null,
+    });
+
+    this.emit<NewServerConnectionEvent>(
+      Event.SERVER_NEW_ADDED_TO_PENDING,
+      event,
+    );
   }
 
   protected _addActiveConnection(
     originalId: string,
-    connection: Pick<ActiveConnection, "server" | "client">,
+    connection: Omit<ActiveConnection, "id" | "establishedAt">,
     addSalt = true,
-  ) {
+  ): Readonly<ActiveConnection> {
     if (!connection.client || !connection.server) {
       throw new RepeaterError("Invalid connection!", {
         originalId,
@@ -275,35 +345,56 @@ export class UltraVNCRepeater extends EventEmitter {
       });
     }
 
+    this._stats.logEstablished();
     const newId = addSalt
       ? `${originalId}#${Date.now()}#${randomUUID()}`
       : originalId;
-    this._activeConnections.set(newId, { id: originalId, ...connection });
-    this._activeConnectionBySocket.set(connection.client, newId);
-    this._activeConnectionBySocket.set(connection.server, newId);
+
+    const activeConnection: ActiveConnection = {
+      id: originalId,
+      ...connection,
+      establishedAt: new Date(),
+    };
+    this._activeConnections.set(newId, activeConnection);
+    this._activeConnectionIdBySocket.set(connection.client, newId);
+    this._activeConnectionIdBySocket.set(connection.server, newId);
+    return activeConnection;
   }
 
   protected async _onNewClient(event: Readonly<NewClientConnectionEvent>) {
-    this.emit(Event.BEFORE_CLIENT_NEW, event);
+    this.emit<NewClientConnectionEvent>(Event.BEFORE_CLIENT_NEW, event);
     this._updateConnectionInfo(event.socket, event.id);
 
-    const { id, buffer, socket: clientSocket } = event;
+    const {
+      id,
+      buffer,
+      socket: clientSocket,
+      emittedAt: clientConnectedAt,
+    } = event;
     const logger = this._getLoggerForSocket(clientSocket);
 
     if (!id) {
+      this._stats.logDirect();
+
       const [, host = buffer, _port = DefaultServerOptions.clientPort] =
         buffer.match(/^(.+):(-?\d+)/) || [];
       let port = parseInt(String(_port));
 
       if (!host) {
         logger.debug(`invalid host specified ("${host}")`);
-        this.emit(Event.CLIENT_NEW_DIRECT_INVALID_HOST);
+        this.emit<NewClientConnectionInvalid>(
+          Event.CLIENT_NEW_DIRECT_INVALID_HOST,
+          event,
+        );
         runSafeAsync(() => closeSocket(clientSocket));
         return;
       }
       if (!port || Number.isNaN(port)) {
         logger.debug(`invalid port specified ("${_port}")`);
-        this.emit(Event.CLIENT_NEW_DIRECT_INVALID_PORT);
+        this.emit<NewClientConnectionInvalid>(
+          Event.CLIENT_NEW_DIRECT_INVALID_PORT,
+          event,
+        );
         runSafeAsync(() => closeSocket(clientSocket));
         return;
       }
@@ -327,16 +418,22 @@ export class UltraVNCRepeater extends EventEmitter {
         host,
         port,
       });
-      this._addActiveConnection(
+
+      const activeConnection = this._addActiveConnection(
         id,
         {
           client: clientSocket,
+          clientConnectedAt: clientConnectedAt,
           server: directSocket,
+          serverConnectedAt: new Date(),
         },
         false,
       );
       try {
-        this.emit(Event.CLIENT_NEW_HOOKUP_DIRECT, event);
+        this.emit<HookupEvent>(Event.CLIENT_NEW_HOOKUP_DIRECT, {
+          emittedAt: new Date(),
+          connection: activeConnection,
+        });
         await BaseGateway.hookup(directSocket, clientSocket, id);
       } catch {
         await this._closeAndDeleteActiveConnection(id);
@@ -344,10 +441,17 @@ export class UltraVNCRepeater extends EventEmitter {
       return;
     }
 
+    this._stats.logClient();
+
     if (!this._pendingConnections.has(id)) {
       this.emit(Event.CLIENT_NEW_ADDED_TO_PENDING, event);
       logger.info(`adding new existing client`);
-      this._pendingConnections.set(id, { server: null, client: clientSocket });
+      this._pendingConnections.set(id, {
+        server: null,
+        serverConnectedAt: null,
+        client: clientSocket,
+        clientConnectedAt,
+      });
       return;
     }
 
@@ -373,11 +477,16 @@ export class UltraVNCRepeater extends EventEmitter {
     if (connection.server) {
       logger.info(`hooking up new client with existing server`);
       this._pendingConnections.delete(id);
-      this._addActiveConnection(id, {
+      const activeConnection = this._addActiveConnection(id, {
         server: connection.server,
+        serverConnectedAt: connection.serverConnectedAt,
         client: clientSocket,
+        clientConnectedAt,
       });
-      this.emit(Event.CLIENT_NEW_HOOKUP, event);
+      this.emit<HookupEvent>(Event.CLIENT_NEW_HOOKUP, {
+        emittedAt: new Date(),
+        connection: activeConnection,
+      });
       await BaseGateway.hookup(connection.server, clientSocket, id);
     } else {
       this.emit(Event.CLIENT_NEW_ADDED_TO_PENDING, event);
@@ -387,7 +496,7 @@ export class UltraVNCRepeater extends EventEmitter {
   protected async _initServerGateway() {
     this.emit(Event.BEFORE_SERVER_GATEWAY_START);
     this._logger.debug(`Starting server gateway...`);
-    this._server = new ServerGateway(
+    this.server = new ServerGateway(
       {
         refuse: this._options.refuse,
         port: this._options.serverPort,
@@ -395,11 +504,12 @@ export class UltraVNCRepeater extends EventEmitter {
         socketTimeout: this._options.socketTimeout,
         socketFirstDataTimeout: this._options.socketFirstDataTimeout,
         keepAlive: this._options.keepAlive,
+        keepAliveRetries: this._options.keepAliveRetries,
       },
       this._logger,
     );
 
-    this._server.on(
+    this.server.on(
       EventInternal.NEW_CONNECTION,
       safeAsync({
         handler: identity(this._onNewConnection.bind(this)),
@@ -413,7 +523,7 @@ export class UltraVNCRepeater extends EventEmitter {
         },
       }),
     );
-    this._server.on(
+    this.server.on(
       EventInternal.NEW_SERVER,
       safeAsync({
         handler: identity(this._onNewServer.bind(this)),
@@ -427,7 +537,7 @@ export class UltraVNCRepeater extends EventEmitter {
         },
       }),
     );
-    this._server.on(
+    this.server.on(
       EventInternal.CLOSE_SERVER,
       safeAsync({
         handler: identity(this._onCloseServer.bind(this)),
@@ -442,7 +552,7 @@ export class UltraVNCRepeater extends EventEmitter {
       }),
     );
 
-    await this._server.start();
+    await this.server.start();
     this._logger.debug(
       `Server gateway has been started on port ${this._options.serverPort}`,
     );
@@ -452,7 +562,7 @@ export class UltraVNCRepeater extends EventEmitter {
   protected async _initClientGateway() {
     this.emit(Event.BEFORE_CLIENT_GATEWAY_START);
     this._logger.debug(`Client gateway starting...`);
-    this._client = new ClientGateway(
+    this.client = new ClientGateway(
       {
         refuse: this._options.refuse,
         noRFB: this._options.noRFB,
@@ -461,11 +571,12 @@ export class UltraVNCRepeater extends EventEmitter {
         socketTimeout: this._options.socketTimeout,
         socketFirstDataTimeout: this._options.socketFirstDataTimeout,
         keepAlive: this._options.keepAlive,
+        keepAliveRetries: this._options.keepAliveRetries,
       },
       this._logger,
     );
 
-    this._client.on(
+    this.client.on(
       EventInternal.NEW_CONNECTION,
       safeAsync({
         handler: identity(this._onNewConnection.bind(this)),
@@ -479,7 +590,7 @@ export class UltraVNCRepeater extends EventEmitter {
         },
       }),
     );
-    this._client.on(
+    this.client.on(
       EventInternal.NEW_CLIENT,
       safeAsync({
         handler: identity(this._onNewClient.bind(this)),
@@ -493,7 +604,7 @@ export class UltraVNCRepeater extends EventEmitter {
         },
       }),
     );
-    this._client.on(
+    this.client.on(
       EventInternal.CLOSE_CLIENT,
       safeAsync({
         handler: identity(this._onCloseClient.bind(this)),
@@ -508,12 +619,12 @@ export class UltraVNCRepeater extends EventEmitter {
       }),
     );
 
-    await this._client.start();
+    await this.client.start();
     this._logger.debug(
       `Client gateway has been started on port ${this._options.clientPort}`,
     );
     this.emit(Event.AFTER_CLIENT_GATEWAY_START);
-    return this._client;
+    return this.client;
   }
 
   protected async _registerCleanups() {
@@ -563,5 +674,12 @@ export class UltraVNCRepeater extends EventEmitter {
 
   protected _getLoggerPrefix() {
     return `[Repeater]`;
+  }
+
+  emit<T extends Record<string, any>>(
+    eventName: string | symbol,
+    body: T | undefined = undefined,
+  ): boolean {
+    return super.emit(eventName, body);
   }
 }

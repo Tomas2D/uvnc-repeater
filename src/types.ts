@@ -14,6 +14,7 @@ export interface VNCRepeaterOptions {
   socketTimeout: number;
   socketFirstDataTimeout: number;
   keepAlive: number;
+  keepAliveRetries: number;
   killTimeout?: number;
 }
 
@@ -24,48 +25,71 @@ export interface ConnectionInfo {
 }
 export type ActiveConnectionId = string;
 export type PendingConnection =
-  | { server: Socket; client: null }
-  | { server: null; client: Socket };
+  | {
+      server: Socket;
+      serverConnectedAt: Date;
+      client: null;
+      clientConnectedAt: null;
+    }
+  | {
+      server: null;
+      serverConnectedAt: null;
+      client: Socket;
+      clientConnectedAt: Date;
+    };
 
 export interface ActiveConnection {
   id: ConnectionId;
   server: Socket;
+  serverConnectedAt: Date;
   client: Socket;
+  clientConnectedAt: Date;
+  establishedAt: Date;
 }
 
 export interface NewConnection {
   socket: Socket;
+  createdAt: Date;
 }
 
-export interface CloseClientConnectionEvent {
+export interface BaseEvent {
+  emittedAt: Date;
+}
+
+export interface CloseClientConnectionEvent extends BaseEvent {
   id?: ConnectionId;
   socket: Socket;
 }
-export interface CloseServerConnectionEvent {
+export interface CloseServerConnectionEvent extends BaseEvent {
   id: ConnectionId;
   socket: Socket;
 }
 
-export interface TimeoutClientConnectionEvent {
+export interface TimeoutClientConnectionEvent extends BaseEvent {
   id?: ConnectionId;
   socket: Socket;
 }
-export interface TimeoutServerConnectionEvent {
+export interface TimeoutServerConnectionEvent extends BaseEvent {
   id: ConnectionId;
   socket: Socket;
 }
 
-export interface NewServerConnectionEvent {
+export interface NewServerConnectionEvent extends BaseEvent {
   id: ConnectionId;
   socket: Socket;
   buffer: string;
 }
-export interface NewClientConnectionEvent {
+export interface NewClientConnectionEvent extends BaseEvent {
   id?: ConnectionId;
   buffer: string;
   socket: Socket;
 }
-export interface NewConnectionEvent {
+export interface NewClientConnectionInvalid extends NewClientConnectionEvent {}
+
+export interface HookupEvent extends BaseEvent {
+  connection: Readonly<ActiveConnection>;
+}
+export interface NewConnectionEvent extends BaseEvent {
   socket: Socket;
 }
 

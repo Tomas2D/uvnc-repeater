@@ -211,6 +211,30 @@ repeater.on(Event.CLIENT_NEW_ADDED_TO_PENDING, (event) => {
 await repeater.start();
 ```
 
+**Manual Connection Closing**
+
+```typescript
+import {UltraVNCRepeater, Event} from "uvnc-repeater";
+import {createConnection} from "net";
+
+const repeater = new UltraVNCRepeater();
+await repeater.start();
+
+// ... after a while
+const activeConnections = repeater.getActiveConnections()
+for (const connection of activeConnections) {
+	if (connection.id === "10000") {
+		await repeater.closeConnection(connection)
+	}
+}
+
+const pendingConnections = repeater.getPendingConnections()
+if (pendingConnections.has("10000")) {
+  const connection = pendingConnections.get("10000")
+  await repeater.closeConnection(connection)
+}
+```
+
 ## ⌨️ CLI
 
 If you want to use the repeater as is, you can install it as a CLI tool.

@@ -13,7 +13,8 @@ export const DefaultServerOptions: VNCRepeaterOptions = {
   socketTimeout: 30 * 60,
   socketFirstDataTimeout: 10,
   killTimeout: 30,
-  keepAlive: 10,
+  keepAlive: 30,
+  keepAliveRetries: 1,
 } as const;
 
 export const EventInternal = createEnumLowerCase([
