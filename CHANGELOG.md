@@ -1,5 +1,13 @@
 # Changelog
 
+<a name="1.3.0-alpha"></a>
+## 1.3.0-alpha (2023-11-18)
+
+### Added
+
+- ✨ Add TCP Keep-Alive support, statistics and improve events [[2db8000](https://github.com/Tomas2D/ultravnc-repeater/commit/2db8000b8e5ac2ad13213bbfecdbdbfd93f7740e)]
+
+
 <a name="1.2.0"></a>
 ## 1.2.0 (2023-09-24)
 
