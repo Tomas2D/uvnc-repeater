@@ -1,5 +1,13 @@
 # Changelog
 
+<a name="1.3.0-beta"></a>
+## 1.3.0-beta (2023-11-19)
+
+### Added
+
+- ✨ Update types and accessors [[7d8cfe5](https://github.com/Tomas2D/ultravnc-repeater/commit/7d8cfe59284dfc4e49fcbf1ebc9c15561230fe8c)]
+
+
 <a name="1.3.0-alpha"></a>
 ## 1.3.0-alpha (2023-11-18)
 
