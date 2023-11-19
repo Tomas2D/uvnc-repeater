@@ -34,10 +34,10 @@ import { EventEmitter } from "node:events";
 import { Stats } from "./Stats.js";
 
 export class UltraVNCRepeater extends EventEmitter {
-  protected client: ClientGateway | null = null;
-  protected server: ServerGateway | null = null;
+  client: ClientGateway | null = null;
+  server: ServerGateway | null = null;
 
-  public readonly _stats = new Stats();
+  protected readonly _stats = new Stats();
 
   // Pending connections (either server or client exists, never both)
   protected readonly _pendingConnections = new Map<
@@ -142,7 +142,7 @@ export class UltraVNCRepeater extends EventEmitter {
   }
 
   getActiveConnections() {
-    return Array.from(this._activeConnections.values());
+    return new Map(this._activeConnections);
   }
 
   protected async _closeAndDeletePendingConnection(id: string, force = false) {
@@ -316,7 +316,7 @@ export class UltraVNCRepeater extends EventEmitter {
       return;
     }
 
-    this.emit(Event.SERVER_NEW_OVERRIDE_OLD, event);
+    this.emit<NewServerConnectionEvent>(Event.SERVER_NEW_OVERRIDE_OLD, event);
     logger.info(`closing and deleting previous server`);
     runSafeAsync(() => this._closeAndDeletePendingConnection(id));
     logger.info(`storing new server`);
