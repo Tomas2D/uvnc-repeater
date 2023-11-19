@@ -222,7 +222,7 @@ await repeater.start();
 
 // ... after a while
 const activeConnections = repeater.getActiveConnections()
-for (const connection of activeConnections) {
+for (const [internalId, connection] of activeConnections) {
 	if (connection.id === "10000") {
 		await repeater.closeConnection(connection)
 	}
