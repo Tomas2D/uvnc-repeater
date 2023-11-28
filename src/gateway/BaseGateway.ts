@@ -142,8 +142,8 @@ export abstract class BaseGateway extends EventEmitter {
         reject(error);
       };
 
-      server.pipe(client).on("error", throwError).on("end", resolve);
-      client.pipe(server).on("error", throwError).on("end", resolve);
+      server.pipe(client).once("error", throwError).once("close", resolve);
+      client.pipe(server).once("error", throwError).once("close", resolve);
     });
   }
 
