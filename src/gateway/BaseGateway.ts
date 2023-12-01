@@ -25,6 +25,7 @@ export interface BaseGatewayOptions {
   socketTimeout: number;
   socketFirstDataTimeout: number;
   port: number;
+  hostname?: string;
   closeSocketTimeout: number;
 }
 
@@ -69,7 +70,7 @@ export abstract class BaseGateway extends EventEmitter {
       if (!this.server) {
         return resolve();
       }
-      this.server.listen(this.options.port, resolve);
+      this.server.listen(this.options.port, this.options.hostname, resolve);
     });
   }
 
