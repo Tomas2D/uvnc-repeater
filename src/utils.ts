@@ -2,6 +2,7 @@ import { Socket, AddressInfo } from "node:net";
 import util from "node:util";
 import { InternalRepeaterError } from "./error.js";
 import { Logger } from "./logger.js";
+import { setTimeout } from "node:timers/promises";
 
 export type OmitType<T extends Record<string, any>, L> = {
   [K in keyof T as T[K] extends L ? never : K]: T[K] extends Record<
@@ -33,13 +34,24 @@ export function omitValues<T extends Record<string, any>, L>(
 
 export function noop() {}
 
-export async function closeSocket(socket: Socket, force = false) {
+export async function closeSocket(socket: Socket, timeout: number) {
+  if (socket.closed) {
+    return;
+  }
+
   const closeFn = async () => {
-    if (force) {
+    if (!timeout) {
       socket.destroy();
-    } else {
-      return util.promisify(socket.end.bind(socket))();
+      return;
     }
+    return await Promise.race([
+      util.promisify(socket.end.bind(socket))(),
+      setTimeout(timeout * 1000).then(() => {
+        if (!socket.closed) {
+          socket.destroy();
+        }
+      }),
+    ]);
   };
 
   await closeFn().catch(noop);

@@ -5,7 +5,6 @@ import type {
 } from "../types.js";
 import { Logger } from "../logger.js";
 import { Socket } from "node:net";
-import { closeSocket } from "../utils.js";
 import { BaseGateway, BaseGatewayOptions } from "./BaseGateway.js";
 import { EventInternal } from "../constants.js";
 
@@ -36,7 +35,7 @@ export class ServerGateway extends BaseGateway {
     );
     if (!id) {
       logger.debug(`invalid ID:NNNNN string for new server: ${buffer}`);
-      await closeSocket(socket);
+      await this._closeSocket(socket);
       return;
     }
 

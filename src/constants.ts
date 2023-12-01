@@ -12,6 +12,7 @@ export const DefaultServerOptions: VNCRepeaterOptions = {
   logger: undefined,
   socketTimeout: 30 * 60,
   socketFirstDataTimeout: 10,
+  closeSocketTimeout: 5,
   killTimeout: 30,
   keepAlive: 30,
   keepAliveRetries: 1,

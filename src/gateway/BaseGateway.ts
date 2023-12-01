@@ -25,6 +25,7 @@ export interface BaseGatewayOptions {
   socketTimeout: number;
   socketFirstDataTimeout: number;
   port: number;
+  closeSocketTimeout: number;
 }
 
 export abstract class BaseGateway extends EventEmitter {
@@ -59,6 +60,7 @@ export abstract class BaseGateway extends EventEmitter {
             err,
             `Unexpected error during connection processing`,
           );
+          this._closeSocket(socket);
         },
       }),
     );
@@ -110,7 +112,7 @@ export abstract class BaseGateway extends EventEmitter {
       setTimeout(this.options.socketFirstDataTimeout * 1000, null),
     ]);
     if (!buffer) {
-      await closeSocket(socket, true);
+      await this._closeSocket(socket);
       throw new InternalRepeaterError(
         `Failed to receive enough data from the socket!`,
       );
@@ -178,11 +180,11 @@ export abstract class BaseGateway extends EventEmitter {
           logger.warn(`error on the socket has occurred (${e.message})`);
           break;
       }
-      closeSocket(socket, true);
+      this._closeSocket(socket);
     });
     socket.on("timeout", () => {
       logger.debug("socket connection has timed out");
-      closeSocket(socket, true);
+      this._closeSocket(socket);
     });
     this.emit<NewConnection>(EventInternal.NEW_CONNECTION, {
       socket,
@@ -201,6 +203,10 @@ export abstract class BaseGateway extends EventEmitter {
         msgPrefix: `[${address}]`,
       },
     );
+  }
+
+  protected async _closeSocket(socket: Socket) {
+    await closeSocket(socket, this.options.closeSocketTimeout);
   }
 
   emit<T extends Record<string, any>>(

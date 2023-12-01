@@ -155,8 +155,8 @@ export class UltraVNCRepeater extends EventEmitter {
 
       const { server, client } = connection;
       await Promise.allSettled([
-        server && closeSocket(server, force),
-        client && closeSocket(client, force),
+        server && this._closeSocket(server, force),
+        client && this._closeSocket(client, force),
       ]);
     }
   }
@@ -193,11 +193,15 @@ export class UltraVNCRepeater extends EventEmitter {
         "Provided socket is not associated with any connection!",
       );
     }
-    await closeSocket(socket, force);
+    await this._closeSocket(socket, force);
   }
 
   getStats() {
     return this._stats.serialize();
+  }
+
+  protected async _closeSocket(socket: Socket, force = false) {
+    await closeSocket(socket, force ? 0 : this._options.closeSocketTimeout);
   }
 
   protected async _closeAndDeleteActiveConnection(id: string, force = false) {
@@ -210,8 +214,8 @@ export class UltraVNCRepeater extends EventEmitter {
       this._activeConnectionIdBySocket.delete(server);
 
       await Promise.allSettled([
-        server && closeSocket(server, force),
-        client && closeSocket(client, force),
+        server && this._closeSocket(server, force),
+        client && this._closeSocket(client, force),
       ]);
     }
   }
@@ -293,7 +297,7 @@ export class UltraVNCRepeater extends EventEmitter {
     if (!this._canHookupConnection(id)) {
       this.emit(Event.SERVER_NEW_PREVENT_HOOKUP, event);
       logger.info(`refusing extra server`);
-      await closeSocket(serverSocket);
+      await this._closeSocket(serverSocket);
       return;
     }
 
@@ -386,7 +390,7 @@ export class UltraVNCRepeater extends EventEmitter {
           Event.CLIENT_NEW_DIRECT_INVALID_HOST,
           event,
         );
-        runSafeAsync(() => closeSocket(clientSocket));
+        await this._closeSocket(clientSocket);
         return;
       }
       if (!port || Number.isNaN(port)) {
@@ -395,7 +399,7 @@ export class UltraVNCRepeater extends EventEmitter {
           Event.CLIENT_NEW_DIRECT_INVALID_PORT,
           event,
         );
-        runSafeAsync(() => closeSocket(clientSocket));
+        await this._closeSocket(clientSocket);
         return;
       }
 
@@ -460,7 +464,7 @@ export class UltraVNCRepeater extends EventEmitter {
       if (!this._canHookupConnection(id)) {
         this.emit(Event.CLIENT_NEW_PREVENT_HOOKUP, event);
         logger.info(`refusing extra client`);
-        runSafeAsync(() => closeSocket(clientSocket));
+        await this._closeSocket(clientSocket);
         return;
       }
 
@@ -468,7 +472,7 @@ export class UltraVNCRepeater extends EventEmitter {
       logger.info(`closing and deleting previous client`);
 
       const connectionToClose = connection.client;
-      runSafeAsync(() => closeSocket(connectionToClose));
+      this._closeSocket(connectionToClose);
     }
 
     logger.info(`storing new client`);
@@ -505,6 +509,7 @@ export class UltraVNCRepeater extends EventEmitter {
         socketFirstDataTimeout: this._options.socketFirstDataTimeout,
         keepAlive: this._options.keepAlive,
         keepAliveRetries: this._options.keepAliveRetries,
+        closeSocketTimeout: this._options.closeSocketTimeout,
       },
       this._logger,
     );
@@ -548,6 +553,7 @@ export class UltraVNCRepeater extends EventEmitter {
             err,
             `Unexpected error when closing server connection`,
           );
+          this._closeSocket(event.socket);
         },
       }),
     );
@@ -572,6 +578,7 @@ export class UltraVNCRepeater extends EventEmitter {
         socketFirstDataTimeout: this._options.socketFirstDataTimeout,
         keepAlive: this._options.keepAlive,
         keepAliveRetries: this._options.keepAliveRetries,
+        closeSocketTimeout: this._options.closeSocketTimeout,
       },
       this._logger,
     );
@@ -601,6 +608,7 @@ export class UltraVNCRepeater extends EventEmitter {
             err,
             `Unexpected error during new client connection`,
           );
+          this._closeSocket(event.socket);
         },
       }),
     );
@@ -615,6 +623,7 @@ export class UltraVNCRepeater extends EventEmitter {
             err,
             `Unexpected error during closing client connection`,
           );
+          this._closeSocket(event.socket);
         },
       }),
     );

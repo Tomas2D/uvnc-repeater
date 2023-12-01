@@ -12,6 +12,7 @@ export interface VNCRepeaterOptions {
   logger?: Logger;
   logLevel?: LogLevel;
   socketTimeout: number;
+  closeSocketTimeout: number;
   socketFirstDataTimeout: number;
   keepAlive: number;
   keepAliveRetries: number;
@@ -92,6 +93,3 @@ export interface HookupEvent extends BaseEvent {
 export interface NewConnectionEvent extends BaseEvent {
   socket: Socket;
 }
-
-export type SemiRequired<T, K extends keyof T> = Pick<Required<T>, K> &
-  Omit<T, K>;
