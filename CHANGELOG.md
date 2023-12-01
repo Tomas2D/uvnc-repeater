@@ -1,19 +1,14 @@
 # Changelog
 
-<a name="1.3.0-beta"></a>
-## 1.3.0-beta (2023-11-19)
+<a name="1.3.0"></a>
+## 1.3.0 (2023-12-01)
 
 ### Added
 
-- ✨ Update types and accessors [[7d8cfe5](https://github.com/Tomas2D/ultravnc-repeater/commit/7d8cfe59284dfc4e49fcbf1ebc9c15561230fe8c)]
-
-
-<a name="1.3.0-alpha"></a>
-## 1.3.0-alpha (2023-11-18)
-
-### Added
-
-- ✨ Add TCP Keep-Alive support, statistics and improve events [[2db8000](https://github.com/Tomas2D/ultravnc-repeater/commit/2db8000b8e5ac2ad13213bbfecdbdbfd93f7740e)]
+- ✨ Add TCP Keep-Alive support, statistics and improve events
+- ✨ Add optional hostname option
+- ✨ Update types and accessors
+- ✨ Improve sockets handling
 
 
 <a name="1.2.0"></a>
