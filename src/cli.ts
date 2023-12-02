@@ -11,6 +11,7 @@ const EnvName = createEnumLowerCase([
   "REPEATER_SERVER_PORT",
   "REPEATER_BUFSIZE",
   "REPEATER_NO_RFB",
+  "REPEATER_REFUSE_DIRECT_HOOKUP",
   "REPEATER_REFUSE",
   "REPEATER_LOGFILE",
   "REPEATER_LOG_LEVEL",
@@ -59,6 +60,14 @@ export async function run() {
         describe: `Prevent multiple connections to same target (or use '${EnvName.REPEATER_REFUSE}' env)`,
         type: "boolean",
         default: getEnv(EnvName.REPEATER_REFUSE, {
+          type: "bool",
+        }),
+        demandOption: false,
+      },
+      refuseDirectHookup: {
+        describe: `Prevent direct connecting to the target when 'host:port' is sent instead of ID. (or use '${EnvName.REPEATER_REFUSE_DIRECT_HOOKUP}' env)`,
+        type: "boolean",
+        default: getEnv(EnvName.REPEATER_REFUSE_DIRECT_HOOKUP, {
           type: "bool",
         }),
         demandOption: false,

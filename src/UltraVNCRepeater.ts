@@ -378,6 +378,12 @@ export class UltraVNCRepeater extends EventEmitter {
     const logger = this._getLoggerForSocket(clientSocket);
 
     if (!id) {
+      if (this._options.refuseDirectHookup) {
+        logger.debug(`direct hookups are disabled, closing connection`);
+        await this._closeSocket(clientSocket);
+        return;
+      }
+
       this._stats.logDirect();
 
       const [, host = buffer, _port = DefaultServerOptions.clientPort] =

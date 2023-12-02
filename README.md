@@ -58,10 +58,16 @@ const repeater = new UltraVNCRepeater({
   clientPort: 5900,
 
   // Reads and waits for the first N bytes from an incoming connection.
-  // In this data chunk, the target ID should be contained.
+  // In this data chunk, the target ID or 'host:port' should be contained.
   bufferSize: 250,
 
-  // Prevents multiple connections to the same target.
+  // Timeout (seconds) in which we should gather `bufferSize` bytes from the connection socket
+  socketFirstDataTimeout: 60 * 5,
+
+  // Prevent direct connecting to the target when 'host:port' is sent instead of ID.
+  refuseDirectHookup: false,
+  
+  // Prevents multiple connections to the same target, instead override the existing connection.
   refuse: true,
 
   // Does not send "RFB 000.000" to the client when the connection starts.
@@ -73,8 +79,14 @@ const repeater = new UltraVNCRepeater({
   // Log levels: "info", "debug", "fatal", "warn", "trace", "error", "warn", "silent".
   logLevel: "debug",
 
-  // Timeout in seconds (in case of inactivity) for all connections.
+  // Timeout in seconds (in case of inactivity) for all connections.`
   socketTimeout: 60 * 5,
+
+  // Keep-Alive interval in seconds
+  keepAlive: 30,
+
+  // Keep-Alive maximal retries before connection is closed
+  keepAliveRetries: 1,
 
   // Time in seconds for a graceful shutdown (close() method or on SIGTERM/SIGINT signal).
   // pass Infinity (Number.POSITIVE_INFINITY) to disable such a feature

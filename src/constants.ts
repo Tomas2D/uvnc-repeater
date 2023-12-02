@@ -5,6 +5,7 @@ export const DefaultServerOptions: VNCRepeaterOptions = {
   serverPort: 5500,
   bufferSize: 250,
   clientPort: 5900,
+  refuseDirectHookup: false,
   logFile: undefined,
   logLevel: "debug",
   noRFB: false,

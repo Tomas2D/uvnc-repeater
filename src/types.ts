@@ -5,6 +5,7 @@ export interface VNCRepeaterOptions {
   clientPort: number;
   serverPort: number;
   bufferSize: number;
+  refuseDirectHookup: boolean;
   refuse: boolean;
   noRFB: boolean;
   logFile?: string;
