@@ -225,11 +225,11 @@ export class UltraVNCRepeater extends EventEmitter {
     const logger = this._getLoggerForSocket(event.socket);
     logger.info(`client has been closed`);
 
+    const tasks: Promise<void>[] = [];
     if (event.id) {
       const connection = this._pendingConnections.get(event.id);
-      if (connection && connection.client === event.socket) {
-        // @ts-expect-error (wrong type inference)
-        connection.client = null;
+      if (connection?.client === event.socket) {
+        tasks.push(this._closeAndDeletePendingConnection(event.id));
       }
     }
 
@@ -238,9 +238,10 @@ export class UltraVNCRepeater extends EventEmitter {
     );
     this._activeConnectionIdBySocket.delete(event.socket);
     if (activeConnectionId) {
-      await this._closeAndDeleteActiveConnection(activeConnectionId);
+      tasks.push(this._closeAndDeleteActiveConnection(activeConnectionId));
     }
 
+    await Promise.allSettled(tasks);
     this.emit(Event.AFTER_CLIENT_CLOSE, event);
   }
 
