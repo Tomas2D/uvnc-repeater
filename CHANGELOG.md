@@ -1,5 +1,18 @@
 # Changelog
 
+<a name="1.4.0"></a>
+## 1.4.0 (2023-12-12)
+
+### Added
+
+- ✨ Add refuseDirectHookup option [[e3c088c](https://github.com/Tomas2D/ultravnc-repeater/commit/e3c088c267790cf437204321b1487c241a127722)]
+
+### Fixed
+
+- 🐛 Remove closed client connection from pending connections [[ec7459c](https://github.com/Tomas2D/ultravnc-repeater/commit/ec7459c0a5e1bedc86cc64cb990ce0af92c8e0ee)]
+- 🐛 Prevents registering closed/errored sockets [[d19b8b9](https://github.com/Tomas2D/ultravnc-repeater/commit/d19b8b9393dcc37345d4f40a6f1617b3e3e74315)]
+
+
 <a name="1.3.0"></a>
 ## 1.3.0 (2023-12-01)
 
