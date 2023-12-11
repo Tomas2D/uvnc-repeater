@@ -275,6 +275,10 @@ export class UltraVNCRepeater extends EventEmitter {
   }
 
   protected async _onNewServer(event: Readonly<NewServerConnectionEvent>) {
+    if (!BaseGateway.isActiveSocket(event.socket)) {
+      return;
+    }
+
     this.emit(Event.BEFORE_SERVER_NEW, event);
     this._updateConnectionInfo(event.socket, event.id);
     this._stats.logServer();
@@ -366,6 +370,10 @@ export class UltraVNCRepeater extends EventEmitter {
   }
 
   protected async _onNewClient(event: Readonly<NewClientConnectionEvent>) {
+    if (!BaseGateway.isActiveSocket(event.socket)) {
+      return;
+    }
+
     this.emit<NewClientConnectionEvent>(Event.BEFORE_CLIENT_NEW, event);
     this._updateConnectionInfo(event.socket, event.id);
 

@@ -133,6 +133,10 @@ export abstract class BaseGateway extends EventEmitter {
     };
   }
 
+  static isActiveSocket(socket: Socket) {
+    return !socket.destroyed && !socket.closed && !socket.errored;
+  }
+
   static async hookup(server: Socket, client: Socket, id: ConnectionId) {
     await new Promise<void>((resolve, reject) => {
       const throwError = (originalError: Error) => {
