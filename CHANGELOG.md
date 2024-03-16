@@ -1,5 +1,13 @@
 # Changelog
 
+<a name="1.4.1"></a>
+## 1.4.1 (2024-03-14)
+
+### Miscellaneous
+
+-  Upgrade dependencies
+
+
 <a name="1.4.0"></a>
 ## 1.4.0 (2023-12-12)
 
