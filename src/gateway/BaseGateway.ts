@@ -170,7 +170,7 @@ export abstract class BaseGateway extends EventEmitter {
       setUserTimeout(socket, this.options.keepAlive * 1000);
       setKeepAliveProbes(socket, Math.max(this.options.keepAliveRetries, 1));
     }
-    socket.on("error", (e) => {
+    socket.once("error", (e) => {
       const errCode = e && "code" in e && e.code;
       switch (errCode) {
         case "ECONNRESET":
@@ -187,7 +187,7 @@ export abstract class BaseGateway extends EventEmitter {
       }
       this._closeSocket(socket);
     });
-    socket.on("timeout", () => {
+    socket.once("timeout", () => {
       logger.debug("socket connection has timed out");
       this._closeSocket(socket);
     });
