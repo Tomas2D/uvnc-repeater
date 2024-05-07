@@ -41,7 +41,7 @@ export class ClientGateway extends BaseGateway {
       socket,
       this.options.bufferSize,
     );
-    socket.on("timeout", () => {
+    socket.once("timeout", () => {
       super.emit<TimeoutClientConnectionEvent>(EventInternal.TIMEOUT_CLIENT, {
         id,
         socket,

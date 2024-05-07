@@ -39,14 +39,14 @@ export class ServerGateway extends BaseGateway {
       return;
     }
 
-    socket.on("timeout", () => {
+    socket.once("timeout", () => {
       super.emit<TimeoutServerConnectionEvent>(EventInternal.TIMEOUT_SERVER, {
         id,
         socket,
         emittedAt: new Date(),
       });
     });
-    socket.on("close", () => {
+    socket.once("close", () => {
       super.emit<CloseServerConnectionEvent>(EventInternal.CLOSE_SERVER, {
         id,
         socket,
