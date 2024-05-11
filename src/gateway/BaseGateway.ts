@@ -8,6 +8,7 @@ import {
   extractSocketAddress,
   identity,
   logException,
+  raceWithAbort,
   safeAsync,
 } from "../utils.js";
 import util from "node:util";
@@ -86,7 +87,11 @@ export abstract class BaseGateway extends EventEmitter {
     return `[${this.constructor.name}]`;
   }
 
-  protected async _waitForData(socket: Socket, size: number): Promise<string> {
+  protected async _waitForData(
+    socket: Socket,
+    size: number,
+    signal: AbortSignal,
+  ): Promise<string> {
     const logger = this._getSocketLogger(socket);
     if (!socket.readable) {
       logger.warn("Socket is not readable!", { socket, size });
@@ -95,6 +100,7 @@ export abstract class BaseGateway extends EventEmitter {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for await (const _ of setInterval(100)) {
+      signal.throwIfAborted();
       const response: Buffer | null = socket.read(size);
       if (response && response.length >= size) {
         return response.toString();
@@ -108,9 +114,12 @@ export abstract class BaseGateway extends EventEmitter {
     const logger = this._getSocketLogger(socket);
     logger.debug(`reading ${size}B from the socket`);
 
-    let buffer = await Promise.race([
-      this._waitForData(socket, size),
-      setTimeout(this.options.socketFirstDataTimeout * 1000, null),
+    let buffer = await raceWithAbort([
+      (signal) => this._waitForData(socket, size, signal),
+      (signal) =>
+        setTimeout(this.options.socketFirstDataTimeout * 1000, null, {
+          signal,
+        }),
     ]);
     if (!buffer) {
       await this._closeSocket(socket);

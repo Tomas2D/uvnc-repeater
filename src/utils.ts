@@ -44,13 +44,16 @@ export async function closeSocket(socket: Socket, timeout: number) {
       socket.destroy();
       return;
     }
-    return await Promise.race([
-      util.promisify(socket.end.bind(socket))(),
-      setTimeout(timeout * 1000).then(() => {
+
+    await raceWithAbort([
+      util.promisify(socket.end.bind(socket)),
+      async (signal) => {
+        await setTimeout(timeout * 1000, null, { signal });
+        signal.throwIfAborted();
         if (!socket.closed) {
           socket.destroy();
         }
-      }),
+      },
     ]);
   };
 
@@ -119,4 +122,20 @@ export function extractSocketAddress(socket: Socket) {
   }
 
   return address.replace("::ffff:", "");
+}
+
+export class AbortError extends Error {
+  name = "AbortError";
+}
+
+export type RaceWithAbortHandler<T> = (signal: AbortSignal) => Promise<T>;
+export async function raceWithAbort<T>(
+  handlers: readonly RaceWithAbortHandler<T>[],
+): Promise<T> {
+  const controller = new AbortController();
+  const result = await Promise.race(
+    handlers.map((handler) => handler(controller.signal)),
+  );
+  controller.abort(new AbortError("Action has been cancelled!"));
+  return result;
 }
