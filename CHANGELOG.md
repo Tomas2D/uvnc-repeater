@@ -1,15 +1,19 @@
 # Changelog
 
-<a name="1.4.3"></a>
-## 1.4.3 (2024-05-07)
+<a name="1.4.5"></a>
+## 1.4.5 (2024-05-11)
 
 ### Added
 
-- ✨ Update events registration [[1c9191d](https://github.com/Tomas2D/ultravnc-repeater/commit/1c9191dcc61a1c420a83d1ac46a1ade2e8614a4e)]
+- ✨ Update events registration [[0356061](https://github.com/Tomas2D/ultravnc-repeater/commit/03560614bc7dfc68bc627053d58a89031e1f6518)]
+
+### Fixed
+
+- 🐛 Terminate socket reading on timeout [[eac5d0e](https://github.com/Tomas2D/ultravnc-repeater/commit/eac5d0e09856ddcbfd47b252dc18f0a694e00cc8)]
 
 ### Miscellaneous
 
--  Merge pull request [#195](https://github.com/Tomas2D/ultravnc-repeater/issues/195) from Tomas2D/dependabot/npm_and_yarn/tsx-4.8.2 [[094f110](https://github.com/Tomas2D/ultravnc-repeater/commit/094f110c648c30cd8f1433df5135003d11e562d8)]
+-  1.4.3 [[873acdf](https://github.com/Tomas2D/ultravnc-repeater/commit/873acdf7301be0473e5909191d63a047282b6e87)]
 -  Bump tsx from 4.7.3 to 4.8.2 [[04a629a](https://github.com/Tomas2D/ultravnc-repeater/commit/04a629aae638c5b48d5befa38f8aa8af6f7025a8)]
 -  Merge pull request [#192](https://github.com/Tomas2D/ultravnc-repeater/issues/192) from Tomas2D/dependabot/npm_and_yarn/pino-9.0.0 [[ae63352](https://github.com/Tomas2D/ultravnc-repeater/commit/ae633522065deb97cbbe4e33dc81dd1ac1f59298)]
 -  Merge pull request [#193](https://github.com/Tomas2D/ultravnc-repeater/issues/193) from Tomas2D/dependabot/npm_and_yarn/tsx-4.7.3 [[005c435](https://github.com/Tomas2D/ultravnc-repeater/commit/005c435e35b883e7b50731de31e7b8c52bd12a97)]
