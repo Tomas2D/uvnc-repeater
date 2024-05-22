@@ -133,9 +133,11 @@ export async function raceWithAbort<T>(
   handlers: readonly RaceWithAbortHandler<T>[],
 ): Promise<T> {
   const controller = new AbortController();
-  const result = await Promise.race(
-    handlers.map((handler) => handler(controller.signal)),
-  );
-  controller.abort(new AbortError("Action has been cancelled!"));
-  return result;
+  try {
+    return await Promise.race(
+      handlers.map((handler) => handler(controller.signal)),
+    );
+  } finally {
+    controller.abort(new AbortError("Action has been cancelled!"));
+  }
 }

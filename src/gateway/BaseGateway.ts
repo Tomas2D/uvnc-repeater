@@ -179,6 +179,9 @@ export abstract class BaseGateway extends EventEmitter {
       setUserTimeout(socket, this.options.keepAlive * 1000);
       setKeepAliveProbes(socket, Math.max(this.options.keepAliveRetries, 1));
     }
+    socket.once("close", () => {
+      socket.removeAllListeners();
+    });
     socket.once("error", (e) => {
       const errCode = e && "code" in e && e.code;
       switch (errCode) {
