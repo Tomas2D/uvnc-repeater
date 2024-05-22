@@ -1,5 +1,20 @@
 # Changelog
 
+<a name="1.4.6"></a>
+## 1.4.6 (2024-05-22)
+
+### Fixed
+
+- 🐛 Improve memory handling [[e02b91e](https://github.com/Tomas2D/ultravnc-repeater/commit/e02b91ee632455e34b6705c3f89b12dc1b9baa61)]
+
+### Miscellaneous
+
+-  Merge pull request [#204](https://github.com/Tomas2D/ultravnc-repeater/issues/204) from Tomas2D/dependabot/npm_and_yarn/tsx-4.10.3 [[b0e7c4b](https://github.com/Tomas2D/ultravnc-repeater/commit/b0e7c4b0bcd1e175896e1616718a0921118042ff)]
+-  Bump tsx from 4.10.1 to 4.10.3 [[7618390](https://github.com/Tomas2D/ultravnc-repeater/commit/76183904b561f22b7426f5e5e622f4242fe859f5)]
+-  Merge pull request [#200](https://github.com/Tomas2D/ultravnc-repeater/issues/200) from Tomas2D/dependabot/npm_and_yarn/tsx-4.10.1 [[2f7e098](https://github.com/Tomas2D/ultravnc-repeater/commit/2f7e0985d6f6db7bdf0672b4247e99aab58edabf)]
+-  Bump tsx from 4.8.2 to 4.10.1 [[ab9fa55](https://github.com/Tomas2D/ultravnc-repeater/commit/ab9fa55fd05a0a304d4831fb80b07dfd4fbd1ce1)]
+
+
 <a name="1.4.5"></a>
 ## 1.4.5 (2024-05-11)
 
