@@ -572,6 +572,21 @@ export class UltraVNCRepeater extends EventEmitter {
         },
       }),
     );
+    this.server.on(
+      EventInternal.TIMEOUT_SERVER,
+      safeAsync({
+        handler: identity(this._onCloseServer.bind(this)),
+        onError: (err, [event]) => {
+          const logger = this._getLoggerForSocket(event.socket);
+          logException(
+            logger,
+            err,
+            `Connection timeout - closing server connection`,
+          );
+          this._closeSocket(event.socket);
+        },
+      }),
+    );
 
     await this.server.start();
     this._logger.debug(
@@ -637,6 +652,21 @@ export class UltraVNCRepeater extends EventEmitter {
             logger,
             err,
             `Unexpected error during closing client connection`,
+          );
+          this._closeSocket(event.socket);
+        },
+      }),
+    );
+    this.client.on(
+      EventInternal.TIMEOUT_CLIENT,
+      safeAsync({
+        handler: identity(this._onCloseClient.bind(this)),
+        onError: (err, [event]) => {
+          const logger = this._getLoggerForSocket(event.socket);
+          logException(
+            logger,
+            err,
+            `Connection timeout - closing client connection`,
           );
           this._closeSocket(event.socket);
         },
