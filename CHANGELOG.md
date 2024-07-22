@@ -1,5 +1,13 @@
 # Changelog
 
+<a name="1.5.1"></a>
+## 1.5.1 (2024-07-22)
+
+### Fixed
+
+- 🐛 Add missing socket destroy call [[479c068](https://github.com/Tomas2D/ultravnc-repeater/commit/479c068cabd8658f4050d79e700df081bdb7800b)]
+
+
 <a name="1.5.0"></a>
 ## 1.5.0 (2024-07-20)
 
