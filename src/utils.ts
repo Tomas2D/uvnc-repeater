@@ -36,6 +36,7 @@ export function noop() {}
 
 export async function closeSocket(socket: Socket, timeout: number) {
   if (socket.closed) {
+    socket.destroy();
     return;
   }
 
@@ -49,10 +50,8 @@ export async function closeSocket(socket: Socket, timeout: number) {
       util.promisify(socket.end.bind(socket)),
       async (signal) => {
         await setTimeout(timeout * 1000, null, { signal });
+        socket.destroy();
         signal.throwIfAborted();
-        if (!socket.closed) {
-          socket.destroy();
-        }
       },
     ]);
   };
