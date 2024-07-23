@@ -1,5 +1,13 @@
 # Changelog
 
+<a name="1.5.2"></a>
+## 1.5.2 (2024-07-23)
+
+### Fixed
+
+- 🐛 Force socket destroy [[a49bfe7](https://github.com/Tomas2D/ultravnc-repeater/commit/a49bfe758343f0d0162a234d9363aa2d2d884dd3)]
+
+
 <a name="1.5.1"></a>
 ## 1.5.1 (2024-07-22)
 
