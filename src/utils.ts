@@ -53,7 +53,7 @@ export async function closeSocket(socket: Socket, timeout: number) {
         socket.destroy();
         signal.throwIfAborted();
       },
-    ]);
+    ]).finally(() => socket.destroy());
   };
 
   await closeFn().catch(noop);
