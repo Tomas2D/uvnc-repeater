@@ -10,13 +10,10 @@ import {
   logException,
   raceWithAbort,
   safeAsync,
+  setSocketTimeout,
 } from "../utils.js";
 import util from "node:util";
-import {
-  setKeepAliveInterval,
-  setKeepAliveProbes,
-  setUserTimeout,
-} from "net-keepalive";
+import { setKeepAliveInterval, setKeepAliveProbes } from "net-keepalive";
 import { setInterval, setTimeout } from "node:timers/promises";
 import { EventInternal } from "../constants.js";
 
@@ -170,13 +167,12 @@ export abstract class BaseGateway extends EventEmitter {
       logger.debug(
         `setting new connection timeout to ${this.options.socketTimeout} seconds.`,
       );
-      socket.setTimeout(this.options.socketTimeout * 1000);
+      setSocketTimeout(socket, this.options.socketTimeout * 1000);
     }
     if (this.options.keepAlive) {
       logger.debug("setting keep-alive properties");
       socket.setKeepAlive(true, this.options.keepAlive * 1000);
       setKeepAliveInterval(socket, this.options.keepAlive * 1000);
-      setUserTimeout(socket, this.options.keepAlive * 1000);
       setKeepAliveProbes(socket, Math.max(this.options.keepAliveRetries, 1));
     }
     socket.once("close", () => {

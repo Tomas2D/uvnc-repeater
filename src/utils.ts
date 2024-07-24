@@ -3,6 +3,7 @@ import util from "node:util";
 import { InternalRepeaterError } from "./error.js";
 import { Logger } from "./logger.js";
 import { setTimeout } from "node:timers/promises";
+import { setUserTimeout } from "net-keepalive";
 
 export type OmitType<T extends Record<string, any>, L> = {
   [K in keyof T as T[K] extends L ? never : K]: T[K] extends Record<
@@ -33,6 +34,11 @@ export function omitValues<T extends Record<string, any>, L>(
 }
 
 export function noop() {}
+
+export function setSocketTimeout(socket: Socket, timeout: number) {
+  setUserTimeout(socket, timeout);
+  socket.setTimeout(timeout);
+}
 
 export async function closeSocket(socket: Socket, timeout: number) {
   if (socket.closed) {

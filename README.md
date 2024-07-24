@@ -68,7 +68,7 @@ const repeater = new UltraVNCRepeater({
   refuseDirectHookup: false,
   
   // Prevents multiple connections to the same target, instead override the existing connection.
-  refuse: true,
+  refuse: false,
 
   // Does not send "RFB 000.000" to the client when the connection starts.
   noRFB: false,
