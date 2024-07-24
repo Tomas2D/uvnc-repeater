@@ -1,5 +1,13 @@
 # Changelog
 
+<a name="1.5.3"></a>
+## 1.5.3 (2024-07-24)
+
+### Fixed
+
+- 🐛 Update socket timeout [[d359c1b](https://github.com/Tomas2D/ultravnc-repeater/commit/d359c1bb94050d2ed5683af82b18922c57e09e26)]
+
+
 <a name="1.5.2"></a>
 ## 1.5.2 (2024-07-23)
 
