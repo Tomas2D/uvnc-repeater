@@ -14,7 +14,7 @@ import {
 } from "../utils.js";
 import util from "node:util";
 import { setKeepAliveInterval, setKeepAliveProbes } from "net-keepalive";
-import { setInterval, setTimeout } from "node:timers/promises";
+import { setTimeout } from "node:timers/promises";
 import { EventInternal } from "../constants.js";
 
 export interface BaseGatewayOptions {
@@ -95,16 +95,39 @@ export abstract class BaseGateway extends EventEmitter {
       return "";
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    for await (const _ of setInterval(100)) {
-      signal.throwIfAborted();
-      const response: Buffer | null = socket.read(size);
-      if (response && response.length >= size) {
-        return response.toString();
-      }
+    // Event-driven read: attempt an immediate read first, then subscribe to
+    // 'readable' so we act as soon as >= size bytes are buffered, with no
+    // fixed polling interval. The AbortSignal is honored so the existing
+    // raceWithAbort timeout in _readHeader still bounds the wait.
+    const immediate: Buffer | null = socket.read(size);
+    if (immediate && immediate.length >= size) {
+      return immediate.toString();
     }
 
-    return "";
+    return new Promise<string>((resolve, reject) => {
+      const onAbort = () => {
+        socket.removeListener("readable", onReadable);
+        socket.removeListener("close", onClose);
+        reject(signal.reason);
+      };
+      const onClose = () => {
+        signal.removeEventListener("abort", onAbort);
+        socket.removeListener("readable", onReadable);
+        resolve("");
+      };
+      const onReadable = () => {
+        const response: Buffer | null = socket.read(size);
+        if (response && response.length >= size) {
+          signal.removeEventListener("abort", onAbort);
+          socket.removeListener("readable", onReadable);
+          socket.removeListener("close", onClose);
+          resolve(response.toString());
+        }
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      socket.on("readable", onReadable);
+      socket.once("close", onClose);
+    });
   }
 
   protected async _readHeader(socket: Socket, size: number) {
