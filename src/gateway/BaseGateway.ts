@@ -175,6 +175,7 @@ export abstract class BaseGateway extends EventEmitter {
       setKeepAliveInterval(socket, this.options.keepAlive * 1000);
       setKeepAliveProbes(socket, Math.max(this.options.keepAliveRetries, 1));
     }
+    socket.setNoDelay(true);
     socket.once("close", () => {
       socket.removeAllListeners();
     });
