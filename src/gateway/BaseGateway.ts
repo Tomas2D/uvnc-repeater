@@ -91,7 +91,7 @@ export abstract class BaseGateway extends EventEmitter {
   ): Promise<string> {
     const logger = this._getSocketLogger(socket);
     if (!socket.readable) {
-      logger.warn("Socket is not readable!", { socket, size });
+      logger.warn({ size }, "Socket is not readable!");
       return "";
     }
 
